@@ -4,407 +4,66 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>تتبع طلبك — By Lubna</title>
-
-<!-- Firebase v10 -->
-<script type="module">
-  import { initializeApp }        from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-
-  // ── Read Firebase config from URL hash (injected by index.html) OR from
-  //    a known public config embedded at build time. For GitHub Pages we rely
-  //    on the same config the admin saved, encoded in the URL fragment as JSON.
-  //    Fallback: try localStorage (same origin) → then embedded placeholder.
-  async function boot() {
-    showLoading();
-
-    // 1. Try to get Firebase config
-    let config = null;
-
-    // Try localStorage (if track.html is on same origin as index.html)
-    try {
-      const saved = localStorage.getItem('bylubna_app');
-      if (saved) {
-        const app = JSON.parse(saved);
-        config = app?.settings?.firebaseConfig || null;
-        if (config && !config.apiKey) config = null;
-
-        // If config is not in Firebase, try to serve directly from localStorage
-        if (!config) {
-          serveFromLocalStorage(app);
-          return;
-        }
-      }
-    } catch(e) {}
-
-    // 2. Try Firebase
-    if (config && config.apiKey && config.databaseURL) {
-      try {
-        const fbApp = initializeApp(config, 'bylubna-track');
-        const db    = getDatabase(fbApp);
-        const snap  = await get(ref(db, 'bylubna'));
-        const data  = snap.val();
-        if (data) {
-          renderTracking(data.orders || []);
-          return;
-        }
-      } catch(e) {
-        console.error('Firebase fetch error:', e);
-      }
-    }
-
-    // 3. Fallback — no data
-    showError();
-  }
-
-  function serveFromLocalStorage(appData) {
-    renderTracking(appData.orders || []);
-  }
-
-  function renderTracking(orders) {
-    const params  = new URLSearchParams(window.location.search);
-    const billId  = params.get('id') || params.get('bill') || '';
-
-    if (!billId) { showNoBill(); return; }
-
-    const order = orders.find(o =>
-      (o.bill || '').trim().toLowerCase() === billId.trim().toLowerCase()
-    );
-
-    if (!order) { showNotFound(billId); return; }
-
-    // ── Build tracking card (NO profit, tailor, fabric costs shown) ──
-    const firstName  = (order.name || '').split(' ')[0] || 'الزبونة الكريمة';
-    const statusInfo = STATUS_MAP[order.status] || STATUS_MAP['جديد'];
-
-    document.getElementById('loadingState').style.display = 'none';
-    const card = document.getElementById('trackCard');
-    card.style.display = 'block';
-
-    document.getElementById('trackBill').textContent   = order.bill || '-';
-    document.getElementById('trackName').textContent   = firstName;
-    document.getElementById('trackStatus').innerHTML   =
-      `<span class="status-badge status-${order.status?.replace(/\s/g,'-')}">${order.status||'جديد'}</span>`;
-    document.getElementById('trackOrderDate').textContent   = order.orderDate   || '-';
-    document.getElementById('trackDeliverDate').textContent = order.deliverDate || '-';
-    document.getElementById('trackType').textContent   = order.type  || '-';
-    document.getElementById('trackColor').textContent  = order.color || '-';
-    document.getElementById('trackAmount').textContent = ((order.amount||0)*(order.qty||1)).toFixed(3) + ' ر.ع';
-    document.getElementById('trackRemark').textContent = order.remark || 'لا توجد ملاحظات';
-
-    // Progress bar
-    const steps    = ['جديد','قيد التفصيل','جاهز','تم التسليم'];
-    const stepIdx  = steps.indexOf(order.status);
-    const progress = order.status === 'تم التسليم' ? 100
-                   : order.status === 'ملغي'       ? 0
-                   : Math.round(((stepIdx < 0 ? 0 : stepIdx) / (steps.length - 1)) * 100);
-
-    document.getElementById('progressBar').style.width = progress + '%';
-    document.getElementById('progressPct').textContent = progress + '%';
-
-    // Steps
-    const stepsEl = document.getElementById('progressSteps');
-    stepsEl.innerHTML = steps.map((s, i) => {
-      const done    = stepIdx >= i && order.status !== 'ملغي';
-      const current = stepIdx === i && order.status !== 'ملغي';
-      return `<div class="step ${done?'done':''} ${current?'current':''}">
-        <div class="step-dot">${done ? '✓' : i+1}</div>
-        <div class="step-label">${s}</div>
-      </div>`;
-    }).join('');
-
-    // Status message
-    document.getElementById('statusMessage').textContent = statusInfo.msg;
-    document.getElementById('statusMessage').style.color = statusInfo.color;
-
-    // Cancelled overlay
-    if (order.status === 'ملغي') {
-      document.getElementById('cancelledNote').style.display = 'block';
-    }
-  }
-
-  const STATUS_MAP = {
-    'جديد':        { msg:'✦ تم استلام طلبك وسيبدأ التحضير قريباً',   color:'#2B5F8A' },
-    'قيد التفصيل':{ msg:'✂️ طلبك الآن قيد التفصيل — يتم العمل عليه', color:'#B8860B' },
-    'جاهز':        { msg:'✅ طلبك جاهز! سيتم التواصل معك للتسليم',    color:'#4A7C59' },
-    'تم التسليم':  { msg:'🎉 تم تسليم طلبك بنجاح — شكراً لثقتك',      color:'#7B1B42' },
-    'ملغي':        { msg:'❌ تم إلغاء هذا الطلب',                       color:'#8B2020' },
-  };
-
-  function showLoading()          { document.getElementById('loadingState').style.display = 'flex'; }
-  function showError()            { document.getElementById('loadingState').style.display = 'none'; document.getElementById('errorState').style.display='block'; }
-  function showNoBill()           { document.getElementById('loadingState').style.display = 'none'; document.getElementById('noBillState').style.display='block'; }
-  function showNotFound(id)       {
-    document.getElementById('loadingState').style.display = 'none';
-    const el = document.getElementById('notFoundState');
-    el.style.display = 'block';
-    el.querySelector('.bill-searched').textContent = id;
-  }
-
-  window.addEventListener('DOMContentLoaded', boot);
-</script>
-
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-
-* { margin:0; padding:0; box-sizing:border-box; }
-:root {
-  --bg:       #EDE3D7;
-  --card:     #FAF6F1;
-  --burgundy: #7B1B42;
-  --gold:     #C9A96E;
-  --text:     #2C1A12;
-  --muted:    #8A6A5A;
-  --border:   #D4C4B0;
-  --success:  #4A7C59;
-  --warning:  #B8860B;
-  --danger:   #8B2020;
-  --info:     #2B5F8A;
-}
-
-body {
-  font-family: 'Cairo', 'Segoe UI', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  direction: rtl;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* ── TOP BAR ── */
-.top-bar {
-  width: 100%;
-  background: var(--card);
-  border-bottom: 3px solid var(--burgundy);
-  padding: 16px 24px;
-  text-align: center;
-  box-shadow: 0 2px 12px rgba(123,27,66,0.12);
-}
-.brand-logo {
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--burgundy);
-  letter-spacing: 4px;
-  font-family: 'Times New Roman', serif;
-}
-.brand-sub {
-  font-size: 12px;
-  color: var(--gold);
-  letter-spacing: 2px;
-  margin-top: 3px;
-}
-
-/* ── MAIN WRAPPER ── */
-.wrapper {
-  width: 100%;
-  max-width: 540px;
-  padding: 28px 16px 48px;
-}
-
-/* ── CARD ── */
-.card {
-  background: var(--card);
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(123,27,66,0.1);
-  overflow: hidden;
-}
-
-.card-header {
-  background: linear-gradient(135deg, var(--burgundy), #9B2856);
-  padding: 20px 24px;
-  color: white;
-  text-align: center;
-}
-.card-header h2 { font-size: 15px; font-weight: 600; opacity: 0.85; margin-bottom: 4px; }
-.bill-number { font-size: 24px; font-weight: 800; letter-spacing: 2px; }
-
-.card-body { padding: 24px; }
-
-/* ── GREETING ── */
-.greeting {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--burgundy);
-  margin-bottom: 16px;
-  text-align: center;
-}
-
-/* ── STATUS MESSAGE ── */
-.status-message {
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  padding: 10px 16px;
-  background: var(--bg);
-  border-radius: 8px;
-}
-
-/* ── PROGRESS ── */
-.progress-section { margin-bottom: 24px; }
-.progress-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
-.progress-track {
-  background: var(--border);
-  border-radius: 20px;
-  height: 8px;
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--burgundy), var(--gold));
-  border-radius: 20px;
-  transition: width 0.8s ease;
-  width: 0%;
-}
-.progress-pct { text-align: left; font-size: 11px; color: var(--muted); }
-
-/* ── STEPS ── */
-.steps-row {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 16px;
-  gap: 4px;
-}
-.step {
-  flex: 1;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-.step-dot {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: var(--border);
-  color: var(--muted);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  transition: all 0.3s;
-}
-.step.done  .step-dot { background: var(--burgundy); color: white; }
-.step.current .step-dot { background: var(--gold); color: white; box-shadow: 0 0 0 3px rgba(201,169,110,0.35); }
-.step-label { font-size: 10px; color: var(--muted); }
-.step.done  .step-label { color: var(--burgundy); font-weight: 600; }
-.step.current .step-label { color: var(--gold); font-weight: 700; }
-
-/* ── INFO ROWS ── */
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.info-cell {
-  background: var(--bg);
-  border-radius: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-}
-.info-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-.info-value { font-size: 14px; font-weight: 700; color: var(--text); }
-
-/* ── STATUS BADGES ── */
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.status-جديد          { background: #e3f2fd; color: #1565c0; }
-.status-قيد-التفصيل   { background: #fff3e0; color: #e65100; }
-.status-جاهز          { background: #e8f5e9; color: #2e7d32; }
-.status-تم-التسليم    { background: #f3e5f5; color: #6a1b9a; }
-.status-ملغي          { background: #ffebee; color: #c62828; }
-
-/* ── REMARK ── */
-.remark-box {
-  background: #FAF6F1;
-  border-right: 3px solid var(--gold);
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 20px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.remark-box strong { color: var(--text); }
-
-/* ── CANCELLED NOTE ── */
-.cancelled-note {
-  display: none;
-  background: #fff0f0;
-  border: 1px solid #ffcdd2;
-  border-radius: 10px;
-  padding: 14px;
-  text-align: center;
-  color: var(--danger);
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-
-/* ── FOOTER ── */
-.track-footer {
-  text-align: center;
-  padding: 20px 24px;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 2;
-}
-.track-footer .brand { color: var(--burgundy); font-weight: 700; font-size: 14px; letter-spacing: 2px; }
-
-/* ── STATES ── */
-.state-card {
-  text-align: center;
-  padding: 48px 24px;
-}
-.state-icon { font-size: 52px; margin-bottom: 16px; }
-.state-title { font-size: 18px; font-weight: 700; color: var(--burgundy); margin-bottom: 8px; }
-.state-sub { font-size: 13px; color: var(--muted); line-height: 1.7; }
-.bill-searched { font-weight: 700; color: var(--text); }
-
-/* Loading spinner */
-#loadingState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 24px;
-  gap: 16px;
-}
-.spinner {
-  width: 40px; height: 40px;
-  border: 3px solid var(--border);
-  border-top-color: var(--burgundy);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#EDE3D7;--card:#FAF6F1;--burgundy:#7B1B42;--gold:#C9A96E;--text:#2C1A12;--muted:#8A6A5A;--border:#D4C4B0;--success:#4A7C59;--warning:#B8860B;--danger:#8B2020;--info:#2B5F8A}
+body{font-family:'Cairo','Segoe UI',sans-serif;background:var(--bg);color:var(--text);direction:rtl;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.top-bar{width:100%;background:var(--card);border-bottom:3px solid var(--burgundy);padding:16px 24px;text-align:center;box-shadow:0 2px 12px rgba(123,27,66,0.12)}
+.brand-logo{font-size:26px;font-weight:800;color:var(--burgundy);letter-spacing:5px;font-family:'Times New Roman',serif}
+.brand-sub{font-size:12px;color:var(--gold);letter-spacing:2px;margin-top:3px}
+.wrapper{width:100%;max-width:540px;padding:28px 16px 48px}
+.card{background:var(--card);border-radius:16px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(123,27,66,0.1);overflow:hidden}
+.card-header{background:linear-gradient(135deg,var(--burgundy),#9B2856);padding:20px 24px;color:white;text-align:center}
+.card-header h2{font-size:15px;font-weight:600;opacity:0.85;margin-bottom:4px}
+.bill-number{font-size:24px;font-weight:800;letter-spacing:2px}
+.card-body{padding:24px}
+.greeting{font-size:16px;font-weight:700;color:var(--burgundy);margin-bottom:16px;text-align:center}
+.status-message{text-align:center;font-size:14px;font-weight:600;margin-bottom:20px;padding:10px 16px;background:var(--bg);border-radius:8px}
+.progress-section{margin-bottom:24px}
+.progress-title{font-size:13px;color:var(--muted);margin-bottom:10px;font-weight:600}
+.progress-track{background:var(--border);border-radius:20px;height:8px;overflow:hidden;margin-bottom:6px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--burgundy),var(--gold));border-radius:20px;transition:width 0.8s ease;width:0%}
+.progress-pct{text-align:left;font-size:11px;color:var(--muted)}
+.steps-row{display:flex;justify-content:space-between;margin-top:16px;gap:4px}
+.step{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px}
+.step-dot{width:28px;height:28px;border-radius:50%;background:var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transition:all 0.3s}
+.step.done .step-dot{background:var(--burgundy);color:white}
+.step.current .step-dot{background:var(--gold);color:white;box-shadow:0 0 0 3px rgba(201,169,110,0.35)}
+.step-label{font-size:10px;color:var(--muted)}
+.step.done .step-label{color:var(--burgundy);font-weight:600}
+.step.current .step-label{color:var(--gold);font-weight:700}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.info-cell{background:var(--bg);border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+.info-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.info-value{font-size:14px;font-weight:700;color:var(--text)}
+.status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.remark-box{background:#FAF6F1;border-right:3px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:var(--muted)}
+.remark-box strong{color:var(--text)}
+.cancelled-note{display:none;background:#fff0f0;border:1px solid #ffcdd2;border-radius:10px;padding:14px;text-align:center;color:var(--danger);font-size:13px;font-weight:600;margin-bottom:16px}
+.track-footer{text-align:center;padding:20px 24px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;line-height:2}
+.track-footer .brand{color:var(--burgundy);font-weight:700;font-size:14px;letter-spacing:2px}
+.state-card{text-align:center;padding:48px 24px}
+.state-icon{font-size:52px;margin-bottom:16px}
+.state-title{font-size:18px;font-weight:700;color:var(--burgundy);margin-bottom:8px}
+.state-sub{font-size:13px;color:var(--muted);line-height:1.7}
+#loadingState{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--burgundy);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
 <div class="top-bar">
   <div class="brand-logo">BY LUBNA</div>
   <div class="brand-sub">✦ تتبع طلبك ✦</div>
 </div>
 
 <div class="wrapper">
-
-  <!-- Loading -->
   <div id="loadingState">
     <div class="spinner"></div>
     <div style="color:var(--muted);font-size:14px">جاري تحميل بيانات طلبك...</div>
   </div>
-
-  <!-- Error -->
   <div id="errorState" style="display:none" class="card">
     <div class="state-card">
       <div class="state-icon">⚠️</div>
@@ -412,8 +71,6 @@ body {
       <div class="state-sub">يرجى التحقق من الرابط أو التواصل مع By Lubna مباشرةً</div>
     </div>
   </div>
-
-  <!-- No bill in URL -->
   <div id="noBillState" style="display:none" class="card">
     <div class="state-card">
       <div class="state-icon">🔍</div>
@@ -421,94 +78,175 @@ body {
       <div class="state-sub">يرجى استخدام الرابط الذي أرسلته لك By Lubna عبر واتساب</div>
     </div>
   </div>
-
-  <!-- Not found -->
   <div id="notFoundState" style="display:none" class="card">
     <div class="state-card">
       <div class="state-icon">📭</div>
       <div class="state-title">لم يُعثَر على الطلب</div>
-      <div class="state-sub">
-        لا يوجد طلب برقم <span class="bill-searched"></span><br>
-        يرجى مراجعة الرابط أو التواصل مع By Lubna
-      </div>
+      <div class="state-sub">لا يوجد طلب برقم <span id="billSearched" style="font-weight:700;color:var(--text)"></span><br>يرجى مراجعة الرابط أو التواصل مع By Lubna</div>
     </div>
   </div>
-
-  <!-- ── TRACKING CARD ── -->
   <div id="trackCard" style="display:none" class="card">
-
-    <!-- Header -->
     <div class="card-header">
       <h2>رقم الطلب</h2>
       <div class="bill-number" id="trackBill">—</div>
     </div>
-
     <div class="card-body">
-
-      <!-- Greeting -->
       <div class="greeting">مرحباً <span id="trackName"></span> 💝</div>
-
-      <!-- Status message -->
       <div class="status-message" id="statusMessage"></div>
-
-      <!-- Cancelled note -->
-      <div class="cancelled-note" id="cancelledNote">
-        ❌ تم إلغاء هذا الطلب — يرجى التواصل مع By Lubna لمزيد من المعلومات
-      </div>
-
-      <!-- Progress -->
+      <div class="cancelled-note" id="cancelledNote">❌ تم إلغاء هذا الطلب — يرجى التواصل مع By Lubna</div>
       <div class="progress-section">
         <div class="progress-title">مرحلة الطلب</div>
-        <div class="progress-track">
-          <div class="progress-fill" id="progressBar"></div>
-        </div>
+        <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
         <div class="progress-pct" id="progressPct">0%</div>
         <div class="steps-row" id="progressSteps"></div>
       </div>
-
-      <!-- Info grid -->
       <div class="info-grid">
-        <div class="info-cell">
-          <div class="info-label">الحالة</div>
-          <div class="info-value" id="trackStatus">—</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">تاريخ الطلب</div>
-          <div class="info-value" id="trackOrderDate">—</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">موعد التسليم المتوقع</div>
-          <div class="info-value" id="trackDeliverDate">—</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">المبلغ الإجمالي</div>
-          <div class="info-value" id="trackAmount">—</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">نوع العباية</div>
-          <div class="info-value" id="trackType">—</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">اللون</div>
-          <div class="info-value" id="trackColor">—</div>
-        </div>
+        <div class="info-cell"><div class="info-label">الحالة</div><div class="info-value" id="trackStatus">—</div></div>
+        <div class="info-cell"><div class="info-label">تاريخ الطلب</div><div class="info-value" id="trackOrderDate">—</div></div>
+        <div class="info-cell"><div class="info-label">موعد التسليم المتوقع</div><div class="info-value" id="trackDeliverDate">—</div></div>
+        <div class="info-cell"><div class="info-label">المبلغ الإجمالي</div><div class="info-value" id="trackAmount">—</div></div>
+        <div class="info-cell"><div class="info-label">نوع العباية</div><div class="info-value" id="trackType">—</div></div>
+        <div class="info-cell"><div class="info-label">اللون</div><div class="info-value" id="trackColor">—</div></div>
       </div>
-
-      <!-- Remarks -->
-      <div class="remark-box">
-        <strong>ملاحظات:</strong> <span id="trackRemark"></span>
-      </div>
-
+      <div class="remark-box"><strong>ملاحظات:</strong> <span id="trackRemark"></span></div>
     </div>
-
-    <!-- Footer -->
     <div class="track-footer">
       <div class="brand">BY LUBNA</div>
       <p>شكراً لثقتك بنا 💝</p>
-      <p style="font-size:11px;margin-top:4px">هذه الصفحة للعرض فقط — لا تعرض أي معلومات مالية خاصة</p>
     </div>
   </div>
+</div>
 
-</div><!-- /wrapper -->
+<script type="module">
+import { initializeApp }         from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ══════════════════════════════════════════
+// ⬇️  ضعي بيانات Firebase هنا مباشرة
+// ══════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
+  authDomain:        "bylubna-f31a4.firebaseapp.com",
+  databaseURL:       "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "bylubna-f31a4",
+  storageBucket:     "bylubna-f31a4.firebasestorage.app",
+  messagingSenderId: "331210998611",
+  appId:             "1:331210998611:web:e1c639a66036242fa917a6"
+};
+// ══════════════════════════════════════════
+
+const STATUS_MAP = {
+  'جديد':         { msg:'✦ تم استلام طلبك وسيبدأ التحضير قريباً',    color:'#2B5F8A' },
+  'قيد التفصيل': { msg:'✂️ طلبك الآن قيد التفصيل',                   color:'#B8860B' },
+  'جاهز':         { msg:'✅ طلبك جاهز! سيتم التواصل معك للتسليم',     color:'#4A7C59' },
+  'تم التسليم':   { msg:'🎉 تم تسليم طلبك بنجاح — شكراً لثقتك',       color:'#7B1B42' },
+  'ملغي':         { msg:'❌ تم إلغاء هذا الطلب',                        color:'#8B2020' },
+};
+
+function show(id)  { document.getElementById(id).style.display = 'block'; }
+function hide(id)  { document.getElementById(id).style.display = 'none';  }
+
+async function boot() {
+  const params = new URLSearchParams(window.location.search);
+  const billId = (params.get('id') || params.get('bill') || '').trim();
+
+  if (!billId) { hide('loadingState'); show('noBillState'); return; }
+
+  let orders = [];
+
+  // 1. Try Firebase first
+  try {
+    const app  = initializeApp(FIREBASE_CONFIG, 'bylubna-track');
+    const db   = getDatabase(app);
+    const snap = await get(ref(db, 'bylubna'));
+    const data = snap.val();
+    if (data && data.orders) {
+      orders = data.orders;
+    }
+  } catch(e) {
+    console.warn('Firebase error:', e);
+  }
+
+  // 2. Fallback to LocalStorage (same device)
+  if (!orders.length) {
+    try {
+      const saved = localStorage.getItem('bylubna_app');
+      if (saved) orders = JSON.parse(saved).orders || [];
+    } catch(e) {}
+  }
+
+  hide('loadingState');
+
+  if (!orders.length) { show('errorState'); return; }
+
+  const order = orders.find(o =>
+    (o.bill||'').trim().toLowerCase() === billId.toLowerCase()
+  );
+
+  if (!order) {
+    show('notFoundState');
+    document.getElementById('billSearched').textContent = billId;
+    return;
+  }
+
+  renderOrder(order);
+}
+
+function renderOrder(o) {
+  const firstName  = (o.name||'').split(' ')[0] || 'الزبونة الكريمة';
+  const statusInfo = STATUS_MAP[o.status] || STATUS_MAP['جديد'];
+  const total      = ((o.amount||0)*(o.qty||1)).toFixed(3);
+
+  show('trackCard');
+  document.getElementById('trackBill').textContent        = o.bill||'-';
+  document.getElementById('trackName').textContent        = firstName;
+  document.getElementById('trackOrderDate').textContent   = o.orderDate||'-';
+  document.getElementById('trackDeliverDate').textContent = o.deliverDate||'-';
+  document.getElementById('trackAmount').textContent      = total + ' ر.ع';
+  document.getElementById('trackType').textContent        = o.type||'-';
+  document.getElementById('trackColor').textContent       = o.color||'-';
+  document.getElementById('trackRemark').textContent      = o.remark||'لا توجد ملاحظات';
+
+  // Status badge
+  const badgeColors = {
+    'جديد':'background:#e3f2fd;color:#1565c0',
+    'قيد التفصيل':'background:#fff3e0;color:#e65100',
+    'جاهز':'background:#e8f5e9;color:#2e7d32',
+    'تم التسليم':'background:#f3e5f5;color:#6a1b9a',
+    'ملغي':'background:#ffebee;color:#c62828'
+  };
+  document.getElementById('trackStatus').innerHTML =
+    `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;${badgeColors[o.status]||''}">${o.status||'جديد'}</span>`;
+
+  // Status message
+  const msgEl = document.getElementById('statusMessage');
+  msgEl.textContent = statusInfo.msg;
+  msgEl.style.color = statusInfo.color;
+
+  // Cancelled
+  if (o.status === 'ملغي') document.getElementById('cancelledNote').style.display = 'block';
+
+  // Progress
+  const steps   = ['جديد','قيد التفصيل','جاهز','تم التسليم'];
+  const stepIdx = steps.indexOf(o.status);
+  const pct     = o.status==='تم التسليم' ? 100
+                : o.status==='ملغي'       ? 0
+                : Math.round(Math.max(0,stepIdx)/(steps.length-1)*100);
+
+  document.getElementById('progressBar').style.width = pct+'%';
+  document.getElementById('progressPct').textContent = pct+'%';
+
+  document.getElementById('progressSteps').innerHTML = steps.map((s,i) => {
+    const done    = stepIdx >= i && o.status !== 'ملغي';
+    const current = stepIdx === i && o.status !== 'ملغي';
+    return `<div class="step ${done?'done':''} ${current?'current':''}">
+      <div class="step-dot">${done?'✓':i+1}</div>
+      <div class="step-label">${s}</div>
+    </div>`;
+  }).join('');
+}
+
+boot();
+</script>
 </body>
 </html>
