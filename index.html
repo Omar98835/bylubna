@@ -42,6 +42,8 @@
           APP.settings = { ...APP.settings, ...(data.settings || {}) };
           APP.invoiceCounter = data.invoiceCounter || APP.invoiceCounter;
           if (data.bank) APP.bank = data.bank;
+          if (data.discounts) APP.discounts = data.discounts;
+          if (data.campaignLog) APP.campaignLog = data.campaignLog;
           if (JSON.stringify({ orders: APP.orders, fabric: APP.fabric }) !== prev) {
             renderDashboard();
             if (document.getElementById('page-orders').classList.contains('active'))
@@ -942,6 +944,9 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
       </div>
     </div>
 
+    <!-- ===== سجل حملات الخصم ===== -->
+    <div id="campaignDashCard" style="display:none;margin-bottom:24px"></div>
+
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-title">📊 المبيعات والربح</div>
@@ -1108,6 +1113,14 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
         <div class="form-group">
           <label>سعر العباية (ر.ع)</label>
           <input type="number" id="f_amount" placeholder="0" step="0.5" oninput="calcProfit()">
+        </div>
+        <div class="form-group">
+          <label>كود الخصم (اختياري)</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="f_discountCode" placeholder="أدخلي الكود هنا" style="flex:1;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+            <button type="button" class="btn btn-outline btn-sm" onclick="applyDiscountCode()" style="white-space:nowrap;flex-shrink:0">✅ تحقق</button>
+          </div>
+          <div id="discountStatus" style="margin-top:6px;font-size:12px;font-weight:600"></div>
         </div>
         <div class="form-group">
           <label>رسوم الخياط (ر.ع)</label>
@@ -1321,6 +1334,63 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
       </div>
     </div>
 
+    <!-- ===== AUTO DISCOUNT CAMPAIGN ===== -->
+    <div class="settings-section" id="autoCampaignSection">
+      <div class="settings-title">🎯 حملة الخصم التلقائي</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">عند التفعيل، كل طلب جديد يُولَّد له كود خصم تلقائياً ويظهر في فاتورته — بدون أي تدخّل منك</p>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+          <div class="form-group" style="margin:0">
+            <label>نسبة الخصم %</label>
+            <input type="number" id="ac_percent" placeholder="مثال: 10" min="1" max="100" step="1">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>صلاحية كل كود (أيام)</label>
+            <input type="number" id="ac_days" placeholder="مثال: 30" min="1" step="1">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>تاريخ انتهاء الحملة</label>
+            <input type="date" id="ac_endDate">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="startAutoCampaign()" id="acStartBtn">🚀 تفعيل الحملة</button>
+        <button class="btn btn-danger" onclick="stopAutoCampaign()" id="acStopBtn" style="display:none;margin-right:8px">⛔ إيقاف الحملة</button>
+      </div>
+
+      <div id="acStatusBox"></div>
+    </div>
+
+    <!-- ===== DISCOUNT CODES MANAGEMENT ===== -->
+    <div class="settings-section">
+      <div class="settings-title">🏷️ إدارة أكواد الخصم</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">أنشئي كود خصم لزبونة — يظهر في فاتورتها ويُستخدم مرة واحدة فقط ثم ينتهي تلقائياً</p>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-group" style="margin:0">
+            <label>نسبة الخصم %</label>
+            <input type="number" id="dc_percent" placeholder="مثال: 10" min="1" max="100" step="1">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>صالح لمدة (أيام)</label>
+            <input type="number" id="dc_days" placeholder="مثال: 30" min="1" step="1">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>اسم الزبونة (اختياري)</label>
+            <input type="text" id="dc_name" placeholder="لتمييز الكود">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>الكود (أو اتركيه فارغاً للتوليد)</label>
+            <input type="text" id="dc_code" placeholder="BL-XXXX أو فارغ" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="createDiscountCode()">➕ إنشاء كود الخصم</button>
+      </div>
+
+      <div id="discountsListContainer"></div>
+    </div>
+
     <!-- ===== ABAYA COLORS MANAGEMENT ===== -->
     <div class="settings-section">
       <div class="settings-title">🎨 إدارة ألوان العبايات</div>
@@ -1479,11 +1549,18 @@ let APP = {
     pin: '',
     metersPerAbaya: 3,
     bundleSize: 23,
-    siteUrl: '',          // e.g. https://username.github.io/bylubna
-    firebaseConfig: null  // set from settings page
+    siteUrl: '',
+    firebaseConfig: null,
+    // حملة الخصم التلقائي
+    autoDiscount: false,       // هل الحملة فعّالة؟
+    autoDiscountPct: 10,       // نسبة الخصم %
+    autoDiscountDays: 30,      // صلاحية كل كود (أيام)
+    autoDiscountEnd: ''        // تاريخ انتهاء الحملة
   },
   invoiceCounter: 1,
-  bank: { balance: 0, transactions: [] }
+  bank: { balance: 0, transactions: [] },
+  discounts: [],   // كل كود خصم
+  campaignLog: []  // سجل الحملات: {id, pct, days, endDate, startDate, stopDate, codesCount, usedCount, totalDiscount}
 };
 
 let currentEditId = null;
@@ -1541,7 +1618,9 @@ function loadData() {
       APP.orders = SEED_ORDERS.map(o => ({...o}));
       APP.fabric = SEED_FABRIC.map(f => ({...f}));
       APP.abaTypes = APP.abaTypes || ['عباية أزرار','عباية شك خرز','عباية بسيطة','عباية كلوش','عباية مطرزة','عباية كيب'];
-      APP.abaColors = APP.abaColors || ['أسود','خمري','رمادي','أزرق','أخضر','أصفر','بني','أبيض'];
+      APP.abaColors  = APP.abaColors  || ['أسود','خمري','رمادي','أزرق','أخضر','أصفر','بني','أبيض'];
+      APP.discounts  = APP.discounts  || [];
+      APP.campaignLog = APP.campaignLog || [];
       APP.invoiceCounter = 22;
       saveData();
       showToast('تم تحميل البيانات التجريبية من Excel ✓', 'success');
@@ -1559,6 +1638,8 @@ function saveData() {
         fabric: APP.fabric,
         abaTypes: APP.abaTypes,
         abaColors: APP.abaColors,
+        discounts: APP.discounts,
+        campaignLog: APP.campaignLog,
         settings: APP.settings,
         invoiceCounter: APP.invoiceCounter,
         bank: APP.bank
@@ -1755,6 +1836,7 @@ function renderDashboard() {
   renderDashAlerts(orders);
   updateBadges();
   updateBankDisplay();
+  renderCampaignDashboard();
 }
 
 function renderCharts(orders, active) {
@@ -2109,6 +2191,10 @@ function initNewOrder() {
   document.getElementById('f_status').value = 'جديد';
   document.getElementById('f_remark').value = '';
   document.getElementById('profitDisplay').textContent = '0.000 ر.ع';
+  const dcEl = document.getElementById('f_discountCode');
+  if (dcEl) { dcEl.value = ''; dcEl.dataset.validCode = ''; dcEl.dataset.validPct = ''; }
+  const dSt = document.getElementById('discountStatus');
+  if (dSt) dSt.innerHTML = '';
 }
 
 function generateBillNumber() {
@@ -2132,16 +2218,29 @@ function generateBillNumber() {
 }
 
 function calcProfit() {
-  const amount = parseFloat(document.getElementById('f_amount').value)||0;
-  const tailor = parseFloat(document.getElementById('f_tailor').value)||0;
-  const fabric = parseFloat(document.getElementById('f_fabric').value)||0;
-  const sheila = parseFloat(document.getElementById('f_sheila').value)||0;
-  const extra  = parseFloat(document.getElementById('f_extra').value)||0;
-  const qty    = parseInt(document.getElementById('f_qty').value)||1;
-  const profit = (amount * qty) - tailor - fabric - sheila - extra;
+  const amount  = parseFloat(document.getElementById('f_amount').value)||0;
+  const tailor  = parseFloat(document.getElementById('f_tailor').value)||0;
+  const fabric  = parseFloat(document.getElementById('f_fabric').value)||0;
+  const sheila  = parseFloat(document.getElementById('f_sheila').value)||0;
+  const extra   = parseFloat(document.getElementById('f_extra').value)||0;
+  const qty     = parseInt(document.getElementById('f_qty').value)||1;
+
+  // احسب الخصم إذا كان كود مفعّل
+  const discPct  = parseFloat(document.getElementById('f_discountCode')?.dataset.validPct || 0);
+  const subtotal = amount * qty;
+  const discAmt  = subtotal * (discPct / 100);
+  const finalAmt = subtotal - discAmt;
+  const profit   = finalAmt - tailor - fabric - sheila - extra;
+
   const el = document.getElementById('profitDisplay');
   el.textContent = profit.toFixed(3) + ' ر.ع';
   el.style.color = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+
+  // أظهر تفاصيل الخصم إذا وجد
+  const statusEl = document.getElementById('discountStatus');
+  if (statusEl && discPct > 0) {
+    statusEl.innerHTML = `خصم ${discPct}% = <strong style="color:var(--danger)">- ${discAmt.toFixed(3)} ر.ع</strong> | الإجمالي بعد الخصم: <strong style="color:var(--success)">${finalAmt.toFixed(3)} ر.ع</strong>`;
+  }
   return profit;
 }
 
@@ -2160,6 +2259,15 @@ function saveOrder() {
   const fabric = parseFloat(document.getElementById('f_fabric').value)||0;
   const sheila = parseFloat(document.getElementById('f_sheila').value)||0;
   const extra  = parseFloat(document.getElementById('f_extra').value)||0;
+
+  // كود الخصم
+  const discCodeEl = document.getElementById('f_discountCode');
+  const discCode   = discCodeEl?.dataset.validCode || '';
+  const discPct    = parseFloat(discCodeEl?.dataset.validPct || 0);
+  const subtotal   = amount * qty;
+  const discAmt    = subtotal * (discPct / 100);
+  const finalAmount = discPct > 0 ? amount - (amount * discPct / 100) : amount;
+
   const profit = calcProfit();
 
   const orderDate = document.getElementById('f_orderDate').value;
@@ -2175,7 +2283,11 @@ function saveOrder() {
     deliverDate: document.getElementById('f_deliverDate').value,
     color: document.getElementById('f_color').value.trim(),
     type: document.getElementById('f_type').value.trim(),
-    qty, amount, tailor, fabric, sheila, extra, profit,
+    qty, amount: finalAmount, tailor, fabric, sheila, extra, profit,
+    discountCode: discCode || '',
+    discountPct:  discPct || 0,
+    discountAmt:  discAmt || 0,
+    originalAmount: amount,
     status: document.getElementById('f_status').value,
     remark: document.getElementById('f_remark').value.trim(),
     month, year
@@ -2206,6 +2318,18 @@ function saveOrder() {
     showToast('تم تعديل الطلب ✓', 'success');
   } else {
     APP.orders.push(order);
+    // إلغاء كود الخصم إذا استُخدم
+    if (discCode) {
+      const dc = APP.discounts.find(d => d.code === discCode);
+      if (dc) {
+        dc.usedBy   = name || bill;
+        dc.usedBill = bill;
+        dc.usedDate = new Date().toLocaleDateString('ar-OM');
+        dc.active   = false;
+      }
+    }
+    // توليد كود خصم تلقائي للطلب الجديد (إذا كانت الحملة فعّالة)
+    order._autoDiscountCode = autoGenerateDiscountForOrder(order);
     // Deduct fabric
     const mpa = APP.settings.metersPerAbaya || 3;
     const colorKey = order.color.toLowerCase();
@@ -2731,15 +2855,42 @@ function downloadInvoicePDF() {
   <div class="inv-total-box">
     <div class="inv-total-row">
       <span>المجموع الفرعي</span>
-      <span>${total} ر.ع</span>
+      <span>${((o.originalAmount||o.amount) * (o.qty||1)).toFixed(3)} ر.ع</span>
     </div>
+    ${o.discountPct > 0 ? `
+    <div class="inv-total-row" style="color:#c0392b">
+      <span>🏷️ خصم ${o.discountPct}% (كود: <span style="direction:ltr;font-weight:700">${o.discountCode}</span>)</span>
+      <span>- ${((o.discountAmt||0) * (o.qty||1)).toFixed(3)} ر.ع</span>
+    </div>` : ''}
     <div class="inv-total-row grand">
       <span>الإجمالي المدفوع</span>
-      <span>${total} ر.ع</span>
+      <span>${(o.amount * (o.qty||1)).toFixed(3)} ر.ع</span>
     </div>
   </div>
 
   ${o.remark ? `<div class="inv-remark"><strong>ملاحظات:</strong> ${o.remark}</div>` : ''}
+
+
+  <!-- DISCOUNT CAMPAIGN TEASER -->
+  ${(() => {
+    const today = new Date().toISOString().split('T')[0];
+    // إذا هذا الطلب استخدم كود خصم — لا تولّد كود جديد في فاتورته
+    if (o.discountCode) return '';
+    // ابحث عن الكود المُولَّد لهذا الطلب تحديداً
+    const dc = (APP.discounts||[]).find(d =>
+      d.active && d.expiry >= today && d.createdBill === o.bill
+    );
+    if (!dc) return '';
+    return `<div style="background:linear-gradient(135deg,#fff5f8,#fdf0f5);border:2px dashed #7B1B42;border-radius:10px;padding:16px 18px;margin-bottom:14px;text-align:center">
+      <div style="font-size:11px;color:#8A6A5A;margin-bottom:8px;letter-spacing:1px">🎁 هديتك الخاصة من By Lubna</div>
+      <div style="font-size:26px;font-weight:700;color:#7B1B42;letter-spacing:5px;direction:ltr;margin-bottom:8px">${dc.code}</div>
+      <div style="font-size:12px;color:#c0392b;font-weight:700;margin-bottom:10px">خصم ${dc.percent}% على طلبك القادم ✨</div>
+      <div style="background:#fff;border-radius:6px;padding:8px 12px;font-size:11px;color:#5A3D2B;line-height:1.9;border:1px solid #D4C4B0">
+        💌 <strong>احتفظي بهذه الفاتورة</strong> وأحضريها عند طلبك القادم<br>لاستخدام كود الخصم الخاص بكِ
+      </div>
+      <div style="font-size:10px;color:#8A6A5A;margin-top:8px">صالح حتى ${dc.expiry} • يُستخدم مرة واحدة فقط</div>
+    </div>`;
+  })()}
 
   <!-- QR + TRACKING LINK -->
   ${(s.siteUrl || '').trim() ? `
@@ -3114,6 +3265,8 @@ function loadSettings() {
     : '<span style="color:var(--text-muted)">○ غير متصل</span>';
   renderTypesList();
   renderColorsList();
+  renderDiscountsList();
+  renderAutoCampaignStatus();
 }
 function renderTypesList() {
   const container = document.getElementById('typesListContainer');
@@ -3325,6 +3478,63 @@ function generateMonthlyPDF() {
 }
 
 // ===== EXPORT / IMPORT =====
+function exportDiscountsExcel() {
+  const today = new Date().toISOString().split('T')[0];
+  const list  = APP.discounts || [];
+
+  // ورقة 1: سجل الأكواد
+  const codesData = list.map(d => {
+    const usedOrder = (APP.orders||[]).find(o => o.discountCode === d.code);
+    const discAmt   = usedOrder ? ((usedOrder.discountAmt||0) * (usedOrder.qty||1)) : 0;
+    const expired   = d.expiry < today;
+    const statusTxt = !d.active ? 'مستخدم' : expired ? 'منتهي' : 'فعّال';
+    return {
+      'الكود':              d.code,
+      'للزبونة':            d.forName || '-',
+      'نسبة الخصم %':      d.percent,
+      'تاريخ الانتهاء':    d.expiry,
+      'الحالة':             statusTxt,
+      'استُخدم بواسطة':    d.usedBy || '-',
+      'تاريخ الاستخدام':   d.usedDate || '-',
+      'رقم الفاتورة':      d.usedBill || '-',
+      'المبلغ المخصوم ر.ع': discAmt ? +discAmt.toFixed(3) : '-',
+      'تاريخ الإنشاء':     d.createdDate || '-',
+      'نوع الكود':          d.auto ? 'تلقائي' : 'يدوي',
+    };
+  });
+
+  // ورقة 2: ملخص الإجمالي
+  const usedOrders = (APP.orders||[]).filter(o => o.discountPct > 0);
+  const summaryData = [
+    { 'البيان': 'عدد الأكواد الكلي',           'القيمة': list.length },
+    { 'البيان': 'عدد الأكواد المستخدمة',        'القيمة': list.filter(d=>!d.active&&d.usedBill).length },
+    { 'البيان': 'عدد الأكواد الفعّالة',          'القيمة': list.filter(d=>d.active&&d.expiry>=today).length },
+    { 'البيان': 'عدد الطلبات المستفيدة',         'القيمة': usedOrders.length },
+    { 'البيان': 'إجمالي الفواتير قبل الخصم ر.ع', 'القيمة': +usedOrders.reduce((s,o)=>s+((o.originalAmount||o.amount)*(o.qty||1)),0).toFixed(3) },
+    { 'البيان': 'إجمالي المبلغ المخصوم ر.ع',     'القيمة': +usedOrders.reduce((s,o)=>s+(o.discountAmt||0)*(o.qty||1),0).toFixed(3) },
+    { 'البيان': 'المحصّل فعلياً ر.ع',            'القيمة': +usedOrders.reduce((s,o)=>s+(o.amount*(o.qty||1)),0).toFixed(3) },
+  ];
+
+  // ورقة 3: سجل الحملات
+  const campData = (APP.campaignLog||[]).map(c => ({
+    'تاريخ البدء':      c.startDate,
+    'تاريخ الانتهاء':  c.endDate,
+    'تاريخ الإيقاف':   c.stopDate || '-',
+    'نسبة الخصم %':   c.pct,
+    'صلاحية الكود أيام': c.days,
+    'الحالة':           c.status,
+  }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(codesData),   'سجل الأكواد');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryData), 'ملخص الخصومات');
+  if (campData.length)
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(campData),  'سجل الحملات');
+
+  XLSX.writeFile(wb, `bylubna-discounts-${today}.xlsx`);
+  showToast('📊 تم تصدير سجل الخصومات ✓', 'success');
+}
+
 function exportJSON() {
   const blob = new Blob([JSON.stringify(APP, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -3390,9 +3600,444 @@ function resetAllData() {
   location.reload();
 }
 
+// ===== CAMPAIGN DASHBOARD =====
+function renderCampaignDashboard() {
+  const card = document.getElementById('campaignDashCard');
+  if (!card) return;
+
+  const log = APP.campaignLog || [];
+  if (!log.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const today = new Date().toISOString().split('T')[0];
+  const allDiscounts = APP.discounts || [];
+
+  const rows = log.slice().reverse().map((camp, idx) => {
+    // الأكواد المنشأة في هذه الحملة
+    const campCodes = allDiscounts.filter(d => {
+      // كود ينتمي للحملة إذا تاريخ إنشائه بين startDate و stopDate/endDate
+      return d.auto &&
+        d.expiry <= new Date(camp.endDate).toISOString().split('T')[0].slice(0,10) &&
+        new Date(d.expiry) >= new Date(camp.startDate);
+    });
+    // الأكواد المُنشأة لهذه الحملة بالضبط عن طريق createdBill
+    const campOrders = (APP.orders || []).filter(o => o.discountCode &&
+      allDiscounts.find(d => d.code === o.discountCode && d.auto));
+    const usedCodes  = allDiscounts.filter(d => d.auto && !d.active && d.usedBill);
+
+    // إحصائيات مبسّطة لكل الحملات (نعرض الكلي لعدم وجود campaign_id في الأكواد بعد)
+    const totalCodes   = allDiscounts.filter(d => d.auto).length;
+    const usedCount    = allDiscounts.filter(d => d.auto && !d.active && d.usedBill).length;
+    const totalDisc    = (APP.orders||[]).filter(o => o.discountPct > 0)
+                          .reduce((s,o) => s + (o.discountAmt||0) * (o.qty||1), 0);
+
+    const statusColor = camp.status==='فعّالة' ? 'var(--success)' :
+                        camp.status==='منتهية'  ? 'var(--text-muted)' : 'var(--danger)';
+
+    // فقط للحملة الأولى في القائمة العكسية نعرض الأرقام الكلية
+    const showStats = idx === 0;
+
+    return `
+    <div style="background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:${showStats?'14px':'0'}">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="background:var(--burgundy);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700">
+            خصم ${camp.pct}%
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:14px">حملة ${camp.startDate}</div>
+            <div style="font-size:12px;color:var(--text-muted)">
+              صلاحية كل كود ${camp.days} يوم • تنتهي ${camp.endDate}
+              ${camp.stopDate ? ` • أُوقفت ${camp.stopDate}` : ''}
+            </div>
+          </div>
+        </div>
+        <span style="color:${statusColor};font-weight:700;font-size:13px">● ${camp.status}</span>
+      </div>
+      ${showStats ? (() => {
+        // حساب دقيق: الأكواد التلقائية المنشأة خلال فترة الحملة
+        const campStart = camp.startDate;
+        const campEnd   = camp.stopDate || camp.endDate;
+
+        // الطلبات التي استخدمت كوداً تلقائياً
+        const ordersWithDisc = (APP.orders||[]).filter(o =>
+          o.discountCode && o.discountPct > 0 &&
+          allDiscounts.find(d => d.code === o.discountCode && d.auto)
+        );
+
+        const totalDiscAmt  = ordersWithDisc.reduce((s,o) => s + (o.discountAmt||0) * (o.qty||1), 0);
+        const totalOriginal = ordersWithDisc.reduce((s,o) => s + ((o.originalAmount||o.amount) * (o.qty||1)), 0);
+        const totalAfterDisc= ordersWithDisc.reduce((s,o) => s + (o.amount * (o.qty||1)), 0);
+
+        return `
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px">
+          <div style="background:var(--bg2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:var(--burgundy)">${totalCodes}</div>
+            <div style="font-size:11px;color:var(--text-muted)">كود مُنشأ</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:var(--success)">${usedCount}</div>
+            <div style="font-size:11px;color:var(--text-muted)">كود مُستخدم</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:var(--info)">${totalCodes - usedCount}</div>
+            <div style="font-size:11px;color:var(--text-muted)">كود لم يُستخدم</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:var(--warning,#e67e22)">${ordersWithDisc.length}</div>
+            <div style="font-size:11px;color:var(--text-muted)">طلب مستفاد</div>
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fff5f8,#fdf0f5);border:1.5px solid #D4C4B0;border-radius:10px;padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+          <div>
+            <div style="font-size:11px;color:#8A6A5A;margin-bottom:4px">إجمالي قبل الخصم</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text)">${totalOriginal.toFixed(3)} ر.ع</div>
+          </div>
+          <div style="border-right:1px solid #D4C4B0;border-left:1px solid #D4C4B0">
+            <div style="font-size:11px;color:#c0392b;margin-bottom:4px">💸 إجمالي المخصوم</div>
+            <div style="font-size:18px;font-weight:700;color:#c0392b">− ${totalDiscAmt.toFixed(3)} ر.ع</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--success);margin-bottom:4px">✅ المحصّل فعلياً</div>
+            <div style="font-size:15px;font-weight:700;color:var(--success)">${totalAfterDisc.toFixed(3)} ر.ع</div>
+          </div>
+        </div>`;
+      })() : ''}
+    </div>`;
+  }).join('');
+
+  card.innerHTML = `
+    <div class="card" style="border:2px solid var(--burgundy)22">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:16px;font-weight:700;color:var(--burgundy)">🏷️ سجل حملات الخصم</div>
+        <div style="font-size:12px;color:var(--text-muted)">${log.length} حملة</div>
+      </div>
+      ${rows}
+    </div>`;
+}
+
+// ===== AUTO DISCOUNT CAMPAIGN =====
+function startAutoCampaign() {
+  const pct     = parseFloat(document.getElementById('ac_percent').value);
+  const days    = parseInt(document.getElementById('ac_days').value);
+  const endDate = document.getElementById('ac_endDate').value;
+
+  if (!pct  || pct  <= 0 || pct  > 100) { showToast('أدخلي نسبة صحيحة (1-100)', 'error'); return; }
+  if (!days || days <= 0)                { showToast('أدخلي عدد أيام الصلاحية', 'error'); return; }
+  if (!endDate)                          { showToast('أدخلي تاريخ انتهاء الحملة', 'error'); return; }
+  if (endDate < new Date().toISOString().split('T')[0]) { showToast('تاريخ الانتهاء يجب أن يكون في المستقبل', 'error'); return; }
+
+  APP.settings.autoDiscount    = true;
+  APP.settings.autoDiscountPct = pct;
+  APP.settings.autoDiscountDays= days;
+  APP.settings.autoDiscountEnd = endDate;
+
+  // سجّل الحملة الجديدة
+  if (!APP.campaignLog) APP.campaignLog = [];
+  APP.settings._activeCampaignId = 'camp-' + Date.now();
+  APP.campaignLog.push({
+    id:        APP.settings._activeCampaignId,
+    pct,
+    days,
+    endDate,
+    startDate: new Date().toLocaleDateString('ar-OM'),
+    stopDate:  '',
+    status:    'فعّالة'
+  });
+
+  saveData();
+  renderAutoCampaignStatus();
+  showToast(`✅ الحملة فعّالة — خصم ${pct}% على كل طلب حتى ${endDate}`, 'success');
+}
+
+function stopAutoCampaign() {
+  if (!confirm('إيقاف حملة الخصم التلقائي؟')) return;
+
+  // حدّث سجل الحملة
+  const cid = APP.settings._activeCampaignId;
+  if (cid && APP.campaignLog) {
+    const camp = APP.campaignLog.find(c => c.id === cid);
+    if (camp) {
+      camp.stopDate = new Date().toLocaleDateString('ar-OM');
+      camp.status   = 'موقوفة';
+    }
+  }
+  APP.settings.autoDiscount = false;
+  saveData();
+  renderAutoCampaignStatus();
+  showToast('تم إيقاف الحملة', 'warning');
+}
+
+function renderAutoCampaignStatus() {
+  const s         = APP.settings;
+  const startBtn  = document.getElementById('acStartBtn');
+  const stopBtn   = document.getElementById('acStopBtn');
+  const statusBox = document.getElementById('acStatusBox');
+  const pctEl     = document.getElementById('ac_percent');
+  const daysEl    = document.getElementById('ac_days');
+  const endEl     = document.getElementById('ac_endDate');
+  if (!statusBox) return;
+
+  const today   = new Date().toISOString().split('T')[0];
+  const expired = s.autoDiscountEnd && s.autoDiscountEnd < today;
+  const active  = s.autoDiscount && !expired;
+
+  // تلقائياً أوقف الحملة المنتهية
+  if (s.autoDiscount && expired) {
+    APP.settings.autoDiscount = false;
+    const cid = s._activeCampaignId;
+    if (cid && APP.campaignLog) {
+      const camp = APP.campaignLog.find(c => c.id === cid);
+      if (camp && !camp.stopDate) {
+        camp.stopDate = new Date().toLocaleDateString('ar-OM');
+        camp.status   = 'منتهية';
+      }
+    }
+    saveData();
+  }
+
+  if (active) {
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn)  stopBtn.style.display  = '';
+    if (pctEl)    { pctEl.value  = s.autoDiscountPct;  pctEl.disabled  = true; }
+    if (daysEl)   { daysEl.value = s.autoDiscountDays; daysEl.disabled = true; }
+    if (endEl)    { endEl.value  = s.autoDiscountEnd;  endEl.disabled  = true; }
+
+    // حساب الأيام المتبقية
+    const msLeft = new Date(s.autoDiscountEnd) - new Date();
+    const daysLeft = Math.ceil(msLeft / 86400000);
+
+    statusBox.innerHTML = `
+      <div style="background:linear-gradient(135deg,#f0fff4,#e8f5e9);border:2px solid var(--success);border-radius:10px;padding:16px;display:flex;align-items:center;gap:16px">
+        <div style="font-size:32px">🎯</div>
+        <div>
+          <div style="font-weight:700;color:var(--success);font-size:15px">الحملة فعّالة الآن</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px">
+            خصم <strong>${s.autoDiscountPct}%</strong> على كل طلب جديد •
+            صلاحية كل كود <strong>${s.autoDiscountDays} يوم</strong> •
+            تنتهي في <strong>${s.autoDiscountEnd}</strong>
+          </div>
+          <div style="font-size:12px;color:${daysLeft <= 3 ? 'var(--danger)' : 'var(--text-muted)'};margin-top:4px">
+            ${daysLeft > 0 ? `⏳ متبقي ${daysLeft} يوم` : '⚠️ انتهت الحملة اليوم'}
+          </div>
+        </div>
+      </div>`;
+  } else {
+    if (startBtn) startBtn.style.display = '';
+    if (stopBtn)  stopBtn.style.display  = 'none';
+    if (pctEl)    pctEl.disabled  = false;
+    if (daysEl)   daysEl.disabled = false;
+    if (endEl)    endEl.disabled  = false;
+    statusBox.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:4px 0">⭕ الحملة غير فعّالة حالياً</div>`;
+  }
+}
+
+function autoGenerateDiscountForOrder(order) {
+  const s     = APP.settings;
+  const today = new Date().toISOString().split('T')[0];
+  if (!s.autoDiscount || !s.autoDiscountEnd || s.autoDiscountEnd < today) return null;
+
+  const code   = generateDiscountCode();
+  const expiry = new Date();
+  expiry.setDate(expiry.getDate() + (s.autoDiscountDays || 30));
+
+  const dc = {
+    code,
+    percent:     s.autoDiscountPct,
+    days:        s.autoDiscountDays,
+    expiry:      expiry.toISOString().split('T')[0],
+    forName:     order.name || '',
+    createdDate: new Date().toLocaleDateString('ar-OM'),
+    createdBill: order.bill,
+    active:      true,
+    auto:        true,
+    usedBy: '', usedBill: '', usedDate: ''
+  };
+  APP.discounts.push(dc);
+  return dc;
+}
+
+// ===== DISCOUNT CODES =====
+function generateDiscountCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'BL-';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function createDiscountCode() {
+  const percent = parseFloat(document.getElementById('dc_percent').value);
+  const days    = parseInt(document.getElementById('dc_days').value);
+  const name    = document.getElementById('dc_name').value.trim();
+  let   code    = document.getElementById('dc_code').value.trim().toUpperCase();
+
+  if (!percent || percent <= 0 || percent > 100) { showToast('أدخلي نسبة صحيحة (1-100)', 'error'); return; }
+  if (!days    || days    <= 0)                   { showToast('أدخلي عدد الأيام', 'error'); return; }
+
+  if (!code) code = generateDiscountCode();
+
+  // تحقق من عدم التكرار
+  if (APP.discounts.find(d => d.code === code)) {
+    showToast('هذا الكود موجود مسبقاً، غيّريه أو اتركيه فارغاً', 'warning');
+    return;
+  }
+
+  const expiry = new Date();
+  expiry.setDate(expiry.getDate() + days);
+
+  APP.discounts.push({
+    code,
+    percent,
+    days,
+    expiry: expiry.toISOString().split('T')[0],
+    forName: name,
+    createdDate: new Date().toLocaleDateString('ar-OM'),
+    active: true,
+    usedBy: '', usedBill: '', usedDate: ''
+  });
+
+  saveData();
+  renderDiscountsList();
+
+  // مسح الحقول
+  document.getElementById('dc_percent').value = '';
+  document.getElementById('dc_days').value    = '';
+  document.getElementById('dc_name').value    = '';
+  document.getElementById('dc_code').value    = '';
+
+  showToast(`✅ تم إنشاء كود الخصم: ${code}`, 'success');
+}
+
+function deleteDiscountCode(code) {
+  if (!confirm(`حذف كود "${code}"؟`)) return;
+  APP.discounts = APP.discounts.filter(d => d.code !== code);
+  saveData();
+  renderDiscountsList();
+  showToast('تم حذف الكود', 'warning');
+}
+
+function renderDiscountsList() {
+  const container = document.getElementById('discountsListContainer');
+  if (!container) return;
+  const list = APP.discounts || [];
+  if (!list.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0">لا توجد أكواد خصم بعد</div>';
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const totalDiscAmt   = (APP.orders||[]).filter(o => o.discountPct > 0)
+    .reduce((s,o) => s + (o.discountAmt||0) * (o.qty||1), 0);
+  const totalInvoices  = (APP.orders||[]).filter(o => o.discountPct > 0)
+    .reduce((s,o) => s + (o.amount * (o.qty||1)), 0);
+  const totalOriginal  = (APP.orders||[]).filter(o => o.discountPct > 0)
+    .reduce((s,o) => s + ((o.originalAmount||o.amount) * (o.qty||1)), 0);
+  const usedCodesCount = list.filter(d => !d.active && d.usedBill).length;
+
+  container.innerHTML = `
+    <!-- بطاقة الإجمالي -->
+    <div style="background:linear-gradient(135deg,#fff5f8,#fdf0f5);border:1.5px solid #D4C4B0;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:#5A3D2B">💸 ملخص المبالغ المخصومة</div>
+        <button class="btn btn-outline btn-sm" onclick="exportDiscountsExcel()" style="font-size:12px">
+          📊 تصدير Excel
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+        <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #D4C4B0">
+          <div style="font-size:11px;color:#8A6A5A;margin-bottom:4px">إجمالي الفواتير قبل الخصم</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">${totalOriginal.toFixed(3)} ر.ع</div>
+        </div>
+        <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #D4C4B0">
+          <div style="font-size:11px;color:#c0392b;margin-bottom:4px">💸 إجمالي المبلغ المخصوم</div>
+          <div style="font-size:20px;font-weight:700;color:#c0392b">− ${totalDiscAmt.toFixed(3)} ر.ع</div>
+        </div>
+        <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #D4C4B0">
+          <div style="font-size:11px;color:var(--success);margin-bottom:4px">✅ المحصّل فعلياً</div>
+          <div style="font-size:16px;font-weight:700;color:var(--success)">${totalInvoices.toFixed(3)} ر.ع</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:#8A6A5A;text-align:center">
+        عدد الأكواد المستخدمة: <strong>${usedCodesCount}</strong> من أصل <strong>${list.length}</strong> كود
+      </div>
+    </div>
+
+    <!-- الجدول -->
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        ${['الكود','للزبونة','الخصم %','ينتهي','الحالة','استُخدم بواسطة','المبلغ المخصوم',''].map(h =>
+          `<th style="background:var(--burgundy);color:white;padding:8px 10px;text-align:right">${h}</th>`
+        ).join('')}
+      </tr></thead>
+      <tbody>
+      ${list.map(d => {
+        const expired = d.expiry < today;
+        const status  = !d.active ? `<span style="color:var(--text-muted)">مستخدم</span>`
+                      : expired   ? `<span style="color:var(--danger)">منتهي</span>`
+                      :             `<span style="color:var(--success);font-weight:700">✅ فعّال</span>`;
+        const rowBg   = !d.active ? '#f9f9f9' : expired ? '#fff5f5' : '#f0fff4';
+        const usedOrder = (APP.orders||[]).find(o => o.discountCode === d.code);
+        const discAmt   = usedOrder
+          ? ((usedOrder.discountAmt||0) * (usedOrder.qty||1)).toFixed(3) + ' ر.ع'
+          : '-';
+        const discAmtColor = usedOrder ? '#c0392b' : 'var(--text-muted)';
+        return `<tr style="border-bottom:1px solid var(--border);background:${rowBg}">
+          <td style="padding:8px 10px;font-weight:700;letter-spacing:1px;direction:ltr">${d.code}</td>
+          <td style="padding:8px 10px">${d.forName||'-'}</td>
+          <td style="padding:8px 10px;color:var(--burgundy);font-weight:700">${d.percent}%</td>
+          <td style="padding:8px 10px">${d.expiry}</td>
+          <td style="padding:8px 10px">${status}</td>
+          <td style="padding:8px 10px;color:var(--text-muted)">${d.usedBy ? `${d.usedBy} — ${d.usedDate}` : '-'}</td>
+          <td style="padding:8px 10px;font-weight:700;color:${discAmtColor}">− ${discAmt}</td>
+          <td style="padding:8px 10px">
+            <button onclick="deleteDiscountCode('${d.code}')" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:15px" title="حذف">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')}
+      <!-- صف الإجمالي -->
+      <tr style="background:#fdf0f5;border-top:2px solid var(--burgundy)">
+        <td colspan="6" style="padding:10px;font-weight:700;color:var(--burgundy);text-align:right">الإجمالي الكلي للمبالغ المخصومة</td>
+        <td style="padding:10px;font-weight:700;color:#c0392b;font-size:15px">− ${totalDiscAmt.toFixed(3)} ر.ع</td>
+        <td></td>
+      </tr>
+      </tbody>
+    </table>`;
+}
+
+function applyDiscountCode() {
+  const codeEl = document.getElementById('f_discountCode');
+  const statusEl = document.getElementById('discountStatus');
+  const code = codeEl.value.trim().toUpperCase();
+  codeEl.value = code;
+
+  if (!code) { statusEl.innerHTML = ''; codeEl.dataset.validCode = ''; codeEl.dataset.validPct = ''; calcProfit(); return; }
+
+  const today = new Date().toISOString().split('T')[0];
+  const dc = (APP.discounts || []).find(d => d.code === code);
+
+  if (!dc) {
+    statusEl.innerHTML = '<span style="color:var(--danger)">❌ الكود غير موجود</span>';
+    codeEl.dataset.validCode = ''; codeEl.dataset.validPct = ''; calcProfit(); return;
+  }
+  if (!dc.active) {
+    statusEl.innerHTML = `<span style="color:var(--danger)">❌ هذا الكود مستخدم مسبقاً بواسطة ${dc.usedBy||''}</span>`;
+    codeEl.dataset.validCode = ''; codeEl.dataset.validPct = ''; calcProfit(); return;
+  }
+  if (dc.expiry < today) {
+    statusEl.innerHTML = `<span style="color:var(--danger)">❌ انتهت صلاحية الكود بتاريخ ${dc.expiry}</span>`;
+    codeEl.dataset.validCode = ''; codeEl.dataset.validPct = ''; calcProfit(); return;
+  }
+
+  // كود صالح
+  codeEl.dataset.validCode = code;
+  codeEl.dataset.validPct  = dc.percent;
+  statusEl.innerHTML = `<span style="color:var(--success)">✅ كود صالح — خصم ${dc.percent}% صالح حتى ${dc.expiry}${dc.forName ? ' — للزبونة: '+dc.forName : ''}</span>`;
+  calcProfit();
+}
+
 // ===== BANK =====
 function openBankModal(mode) {
-  const modal = document.getElementById('bankModal');
   const title = document.getElementById('bankModalTitle');
   const body  = document.getElementById('bankModalBody');
 
@@ -3401,25 +4046,28 @@ function openBankModal(mode) {
     body.innerHTML = `
       <div class="form-group" style="margin-bottom:16px">
         <label>المبلغ (ر.ع)</label>
-        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700">
+        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700" onkeydown="if(event.key==='Enter')doBankTx('deposit')">
       </div>
       <div class="form-group" style="margin-bottom:20px">
         <label>البيان / الملاحظة</label>
-        <input type="text" id="bankNote" placeholder="مثال: استلام دفعة زبونة">
+        <input type="text" id="bankNote" placeholder="مثال: استلام دفعة زبونة" onkeydown="if(event.key==='Enter')doBankTx('deposit')">
       </div>
-      <button class="btn btn-success" style="width:100%;justify-content:center" onclick="doBankTx('deposit')">تأكيد الإيداع</button>`;
+      <button class="btn btn-success" style="width:100%;justify-content:center" id="bankConfirmBtn">تأكيد الإيداع</button>`;
+    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx('deposit'));
+
   } else if (mode === 'withdraw') {
     title.textContent = '➖ سحب من الحساب';
     body.innerHTML = `
       <div class="form-group" style="margin-bottom:16px">
         <label>المبلغ (ر.ع)</label>
-        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700">
+        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700" onkeydown="if(event.key==='Enter')doBankTx('withdraw')">
       </div>
       <div class="form-group" style="margin-bottom:20px">
         <label>البيان / الملاحظة</label>
-        <input type="text" id="bankNote" placeholder="مثال: شراء قماش، دفع خياط">
+        <input type="text" id="bankNote" placeholder="مثال: شراء قماش، دفع خياط" onkeydown="if(event.key==='Enter')doBankTx('withdraw')">
       </div>
-      <button class="btn btn-danger" style="width:100%;justify-content:center" onclick="doBankTx('withdraw')">تأكيد السحب</button>`;
+      <button class="btn btn-danger" style="width:100%;justify-content:center" id="bankConfirmBtn">تأكيد السحب</button>`;
+    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx('withdraw'));
   } else {
     title.textContent = '📋 سجل المعاملات البنكية';
     const txs = (APP.bank.transactions || []).slice().reverse();
