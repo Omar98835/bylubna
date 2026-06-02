@@ -38,8 +38,10 @@
           APP.orders   = data.orders   || APP.orders;
           APP.fabric   = data.fabric   || APP.fabric;
           APP.abaTypes = data.abaTypes || APP.abaTypes;
+          APP.abaColors = data.abaColors || APP.abaColors;
           APP.settings = { ...APP.settings, ...(data.settings || {}) };
           APP.invoiceCounter = data.invoiceCounter || APP.invoiceCounter;
+          if (data.bank) APP.bank = data.bank;
           if (JSON.stringify({ orders: APP.orders, fabric: APP.fabric }) !== prev) {
             renderDashboard();
             if (document.getElementById('page-orders').classList.contains('active'))
@@ -918,6 +920,28 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 
     <div class="stats-grid" id="statsGrid"></div>
 
+    <!-- ===== رصيد البنك ===== -->
+    <div class="card mb-16" style="margin-bottom:24px;border:2px solid var(--gold)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+        <div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">🏦 رصيد حساب By Lubna في البنك</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <div id="bankBalanceDisplay" style="font-size:32px;font-weight:700;color:var(--burgundy)">0.000</div>
+            <div style="font-size:14px;color:var(--text-muted)">ر.ع</div>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+            صافي الربح المحقق: <span id="bankProfitRef" style="font-weight:700;color:var(--success)">0.000 ر.ع</span>
+            &nbsp;|&nbsp; فرق الرصيد: <span id="bankDiffDisplay" style="font-weight:700">0.000 ر.ع</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-success btn-sm" onclick="openBankModal('deposit')">➕ إيداع</button>
+          <button class="btn btn-danger btn-sm" onclick="openBankModal('withdraw')">➖ سحب</button>
+          <button class="btn btn-outline btn-sm" onclick="openBankModal('history')">📋 السجل</button>
+        </div>
+      </div>
+    </div>
+
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-title">📊 المبيعات والربح</div>
@@ -1297,6 +1321,19 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
       </div>
     </div>
 
+    <!-- ===== ABAYA COLORS MANAGEMENT ===== -->
+    <div class="settings-section">
+      <div class="settings-title">🎨 إدارة ألوان العبايات</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">أضيفي الألوان هنا وستظهر تلقائياً في القائمة المنسدلة عند إضافة طلب جديد</p>
+
+      <div class="flex gap-8 items-center mb-16 flex-wrap">
+        <input type="text" id="newColorInput" placeholder="اسم اللون الجديد... مثال: خمري، رمادي فاتح" style="flex:1;min-width:200px;max-width:350px" onkeydown="if(event.key==='Enter')addAbaColor()">
+        <button class="btn btn-primary" onclick="addAbaColor()">➕ إضافة</button>
+      </div>
+
+      <div id="colorsListContainer" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+    </div>
+
     <!-- ===== ABAYA TYPES MANAGEMENT ===== -->
     <div class="settings-section">
       <div class="settings-title">👗 إدارة أنواع العبايات</div>
@@ -1341,26 +1378,14 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('invoiceModal')">إغلاق</button>
       <button class="btn btn-success" onclick="printInvoice()">🖨️ طباعة</button>
-      <button class="btn btn-primary" onclick="downloadInvoicePDF()">⬇️ تحميل PDF</button>
+      <button class="btn btn-primary" onclick="downloadInvoicePDF()">⬇️ حفظ الإيصال</button>
       <button class="btn btn-gold" onclick="sendWhatsApp()">📲 إرسال واتساب</button>
     </div>
   </div>
 </div>
 
-<!-- Edit Order Modal -->
-<div class="modal-overlay hidden" id="editModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">✏️ تعديل الطلب</div>
-      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
-    </div>
-    <div class="modal-body" id="editModalBody"></div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal('editModal')">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveEditOrder()">💾 حفظ التعديلات</button>
-    </div>
-  </div>
-</div>
+<!-- Edit Order Modal - not used, edit happens via page-neworder -->
+
 
 <!-- Add Fabric Modal -->
 <div class="modal-overlay hidden" id="fabricModal">
@@ -1423,6 +1448,17 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
   </div>
 </div>
 
+<!-- ===== BANK MODAL ===== -->
+<div class="modal-overlay hidden" id="bankModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="bankModalTitle">🏦 العملية البنكية</div>
+      <button class="modal-close" onclick="closeModal('bankModal')">×</button>
+    </div>
+    <div class="modal-body" id="bankModalBody"></div>
+  </div>
+</div>
+
 <!-- Toast Container -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -1433,6 +1469,7 @@ let APP = {
   orders: [],
   fabric: [],
   abaTypes: ['عباية أزرار','عباية شك خرز','عباية بسيطة','عباية كلوش','عباية مطرزة','عباية كيب'],
+  abaColors: ['أسود','خمري','رمادي','أزرق','أخضر','أصفر','بني','أبيض'],
   settings: {
     name: 'By Lubna',
     phone: '',
@@ -1445,7 +1482,8 @@ let APP = {
     siteUrl: '',          // e.g. https://username.github.io/bylubna
     firebaseConfig: null  // set from settings page
   },
-  invoiceCounter: 1
+  invoiceCounter: 1,
+  bank: { balance: 0, transactions: [] }
 };
 
 let currentEditId = null;
@@ -1491,6 +1529,7 @@ function loadData() {
       const parsed = JSON.parse(saved);
       APP = { ...APP, ...parsed };
       APP.settings = { ...APP.settings, ...(parsed.settings || {}) };
+      APP.bank = parsed.bank || { balance: 0, transactions: [] };
       // Auto-init Firebase if config was saved
       if (APP.settings.firebaseConfig && window.initFirebase) {
         setTimeout(() => {
@@ -1502,6 +1541,7 @@ function loadData() {
       APP.orders = SEED_ORDERS.map(o => ({...o}));
       APP.fabric = SEED_FABRIC.map(f => ({...f}));
       APP.abaTypes = APP.abaTypes || ['عباية أزرار','عباية شك خرز','عباية بسيطة','عباية كلوش','عباية مطرزة','عباية كيب'];
+      APP.abaColors = APP.abaColors || ['أسود','خمري','رمادي','أزرق','أخضر','أصفر','بني','أبيض'];
       APP.invoiceCounter = 22;
       saveData();
       showToast('تم تحميل البيانات التجريبية من Excel ✓', 'success');
@@ -1518,8 +1558,10 @@ function saveData() {
         orders: APP.orders,
         fabric: APP.fabric,
         abaTypes: APP.abaTypes,
+        abaColors: APP.abaColors,
         settings: APP.settings,
-        invoiceCounter: APP.invoiceCounter
+        invoiceCounter: APP.invoiceCounter,
+        bank: APP.bank
       }).catch(e => console.error('Firebase write error:', e));
     }
   } catch(e) { showToast('خطأ في حفظ البيانات', 'error'); }
@@ -1712,6 +1754,7 @@ function renderDashboard() {
   renderCharts(orders, active);
   renderDashAlerts(orders);
   updateBadges();
+  updateBankDisplay();
 }
 
 function renderCharts(orders, active) {
@@ -2048,6 +2091,7 @@ function initNewOrder() {
   currentEditId = null;
   document.getElementById('orderFormTitle').textContent = '➕ طلب جديد';
   refreshTypeList();
+  refreshColorList();
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('f_orderDate').value = today;
   document.getElementById('f_bill').value = generateBillNumber();
@@ -2175,6 +2219,7 @@ function saveOrder() {
 
   saveData();
   updateBadges();
+  updateBankDisplay();
   goTo('orders');
 }
 
@@ -2201,7 +2246,13 @@ function editOrder(id) {
   document.getElementById('f_remark').value = o.remark||'';
   calcProfit();
 
-  goTo('neworder');
+  // الانتقال لصفحة التعديل بدون مسح البيانات (تجاوز initNewOrder)
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-neworder').classList.add('active');
+  const items = document.querySelectorAll('.nav-item');
+  items.forEach(item => { if(item.getAttribute('onclick') && item.getAttribute('onclick').includes("'neworder'")) item.classList.add('active'); });
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 }
 
 function deleteOrder(id) {
@@ -2307,7 +2358,7 @@ function buildInvoiceHTML(o) {
       <div id="invoiceQR_${o.id}" style="flex-shrink:0"></div>
       <div>
         <div style="font-weight:700;color:var(--burgundy);font-size:13px;margin-bottom:4px">📲 تتبعي طلبك أونلاين</div>
-        <div style="font-size:11px;color:var(--text-muted);direction:ltr;word-break:break-all">${trackUrl}</div>
+        <a href="${trackUrl}" target="_blank" style="font-size:11px;color:var(--info);direction:ltr;word-break:break-all;display:block;text-decoration:underline">${trackUrl}</a>
       </div>
     </div>` : ''}
 
@@ -2361,6 +2412,46 @@ function printInvoice() {
   win.document.close();
   win.focus();
   win.print();
+}
+
+// ===== QR CODE SVG GENERATOR (بدون مكتبة خارجية) =====
+function generateQRsvg(text) {
+  // خوارزمية QR مبسّطة - تعتمد على مكتبة qrcode-generator المضمّنة
+  // نستخدم Data URL approach مع canvas مؤقت
+  try {
+    // إنشاء canvas مؤقت خارج الـ DOM
+    const canvas = document.createElement('canvas');
+    const size = 80;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // نستخدم QRCode library الموجودة في الصفحة الرئيسية
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:absolute;left:-9999px;width:80px;height:80px';
+    document.body.appendChild(tempDiv);
+
+    new QRCode(tempDiv, {
+      text: text,
+      width: 80, height: 80,
+      colorDark: '#7B1B42',
+      colorLight: '#FAF6F1',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    // انتظر قليلاً حتى يُولَّد، ثم احصل على الـ canvas
+    const qrCanvas = tempDiv.querySelector('canvas');
+    let dataUrl = '';
+    if (qrCanvas) {
+      dataUrl = qrCanvas.toDataURL('image/png');
+    }
+    document.body.removeChild(tempDiv);
+
+    if (dataUrl) {
+      return `<img src="${dataUrl}" width="80" height="80" style="display:block;border-radius:4px" alt="QR Code">`;
+    }
+  } catch(e) {}
+  return ''; // إذا فشل، لا يُظهر شيء
 }
 
 function downloadInvoicePDF() {
@@ -2562,7 +2653,7 @@ function downloadInvoicePDF() {
     }
   }
   @media print {
-    .print-btn, .tip { display: none !important; }
+    .no-print { display: none !important; }
     body { background: #fff; padding: 0; }
     .page { width: 100%; min-height: unset; padding: 0; box-shadow: none; }
   }
@@ -2570,8 +2661,15 @@ function downloadInvoicePDF() {
 </head>
 <body>
 
-<button class="print-btn" onclick="window.print()">⬇️ حفظ PDF / طباعة</button>
-<p class="tip">عند الطباعة اختاري "حفظ كـ PDF" من قائمة الطابعة</p>
+<div style="text-align:center;padding:16px 0;font-family:'Cairo',sans-serif" class="no-print">
+  <button onclick="downloadMe()" style="background:#7B1B42;color:#fff;border:none;padding:13px 32px;border-radius:8px;font-size:15px;font-family:'Cairo',sans-serif;cursor:pointer;font-weight:700;letter-spacing:1px;margin-left:10px">
+    ⬇️ حفظ الإيصال (HTML)
+  </button>
+  <button onclick="window.print()" style="background:#C9A96E;color:#2C1A12;border:none;padding:13px 28px;border-radius:8px;font-size:15px;font-family:'Cairo',sans-serif;cursor:pointer;font-weight:700">
+    🖨️ طباعة
+  </button>
+  <p style="color:#8A6A5A;font-size:12px;margin-top:10px">💡 حفظ HTML يحافظ على الرابط والباركود قابلَين للنقر</p>
+</div>
 
 <div class="page">
 
@@ -2643,6 +2741,20 @@ function downloadInvoicePDF() {
 
   ${o.remark ? `<div class="inv-remark"><strong>ملاحظات:</strong> ${o.remark}</div>` : ''}
 
+  <!-- QR + TRACKING LINK -->
+  ${(s.siteUrl || '').trim() ? `
+  <div style="display:flex;align-items:center;gap:16px;background:#f9f5f0;border:1px solid #D4C4B0;border-radius:8px;padding:14px;margin-bottom:14px">
+    <div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center">
+      ${generateQRsvg((s.siteUrl||'').replace(/\/$/,'') + '/track.html?id=' + encodeURIComponent(o.bill||''))}
+    </div>
+    <div>
+      <div style="font-weight:700;color:#7B1B42;font-size:13px;margin-bottom:6px">📲 تتبعي طلبك أونلاين</div>
+      <a href="${(s.siteUrl||'').replace(/\/$/,'')}/track.html?id=${encodeURIComponent(o.bill||'')}" 
+         style="font-size:11px;color:#2B5F8A;direction:ltr;word-break:break-all;display:block;text-decoration:underline"
+         dir="ltr">${(s.siteUrl||'').replace(/\/$/,'')}/track.html?id=${encodeURIComponent(o.bill||'')}</a>
+    </div>
+  </div>` : ''}
+
   <!-- FOOTER -->
   <div class="inv-footer">
     <div class="dots">✦ ✦ ✦</div>
@@ -2654,10 +2766,18 @@ function downloadInvoicePDF() {
 </div>
 
 <script>
-  // Auto-trigger print dialog after fonts load
-  window.addEventListener('load', () => {
-    setTimeout(() => window.print(), 600);
-  });
+  function downloadMe() {
+    const btns = document.querySelector('.no-print');
+    if (btns) btns.style.display = 'none';
+    const html = '<!DOCTYPE html>' + document.documentElement.outerHTML;
+    if (btns) btns.style.display = '';
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = document.title.replace(/\s+/g, '-') + '.html';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
 <\/script>
 </body>
 </html>`;
@@ -2672,7 +2792,7 @@ function downloadInvoicePDF() {
   }
   // Clean up blob URL after the window has had time to load it
   setTimeout(() => URL.revokeObjectURL(url), 10000);
-  showToast('افتحي الفاتورة واختاري "حفظ كـ PDF" ✓', 'info');
+  showToast('تم فتح الإيصال — اضغطي "حفظ الإيصال" للتنزيل ✓', 'info');
 }
 
 function sendWhatsApp() {
@@ -2993,9 +3113,8 @@ function loadSettings() {
     ? '<span style="color:var(--success)">● متصل بـ Firebase ✓</span>'
     : '<span style="color:var(--text-muted)">○ غير متصل</span>';
   renderTypesList();
+  renderColorsList();
 }
-
-// ===== ABAYA TYPES MANAGEMENT =====
 function renderTypesList() {
   const container = document.getElementById('typesListContainer');
   if (!container) return;
@@ -3034,6 +3153,54 @@ function deleteAbaType(idx) {
   renderTypesList();
   refreshTypeList();
   showToast('تم حذف النوع', 'warning');
+}
+
+// ===== COLORS MANAGEMENT =====
+function renderColorsList() {
+  const container = document.getElementById('colorsListContainer');
+  if (!container) return;
+  const colors = APP.abaColors || [];
+  if (!colors.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px">لا توجد ألوان مضافة بعد</div>';
+    return;
+  }
+  container.innerHTML = colors.map((c, i) => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px">
+      <span style="font-size:14px;color:var(--text)">🎨 ${c}</span>
+      <button onclick="deleteAbaColor(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:0 2px" title="حذف">✕</button>
+    </div>`
+  ).join('');
+}
+
+function addAbaColor() {
+  const input = document.getElementById('newColorInput');
+  const val = input.value.trim();
+  if (!val) { showToast('يجب إدخال اسم اللون', 'error'); return; }
+  if (!APP.abaColors) APP.abaColors = [];
+  if (APP.abaColors.includes(val)) { showToast('هذا اللون موجود مسبقاً', 'warning'); return; }
+  APP.abaColors.push(val);
+  saveData();
+  input.value = '';
+  renderColorsList();
+  refreshColorList();
+  showToast('تم إضافة اللون ✓', 'success');
+}
+
+function deleteAbaColor(idx) {
+  const color = APP.abaColors[idx];
+  if (!confirm(`حذف لون "${color}"؟`)) return;
+  APP.abaColors.splice(idx, 1);
+  saveData();
+  renderColorsList();
+  refreshColorList();
+  showToast('تم حذف اللون', 'warning');
+}
+
+function refreshColorList() {
+  const dl = document.getElementById('colorList');
+  if (!dl) return;
+  const colors = APP.abaColors || [];
+  dl.innerHTML = colors.map(c => `<option value="${c}">`).join('');
 }
 
 function saveSettings() {
@@ -3177,8 +3344,10 @@ function importJSON(event) {
       if (!confirm('هل تريدين استيراد هذه البيانات؟ سيتم استبدال البيانات الحالية.')) return;
       APP = { ...APP, ...data };
       if (!APP.abaTypes || !APP.abaTypes.length) APP.abaTypes = ['عباية أزرار','عباية شك خرز','عباية بسيطة','عباية كلوش','عباية مطرزة','عباية كيب'];
+      if (!APP.abaColors || !APP.abaColors.length) APP.abaColors = ['أسود','خمري','رمادي','أزرق','أخضر','أصفر','بني','أبيض'];
       saveData();
       refreshTypeList();
+      refreshColorList();
       showToast('تم استيراد البيانات ✓', 'success');
       renderDashboard();
     } catch(err) { showToast('خطأ في قراءة الملف', 'error'); }
@@ -3221,6 +3390,111 @@ function resetAllData() {
   location.reload();
 }
 
+// ===== BANK =====
+function openBankModal(mode) {
+  const modal = document.getElementById('bankModal');
+  const title = document.getElementById('bankModalTitle');
+  const body  = document.getElementById('bankModalBody');
+
+  if (mode === 'deposit') {
+    title.textContent = '➕ إيداع في الحساب';
+    body.innerHTML = `
+      <div class="form-group" style="margin-bottom:16px">
+        <label>المبلغ (ر.ع)</label>
+        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700">
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>البيان / الملاحظة</label>
+        <input type="text" id="bankNote" placeholder="مثال: استلام دفعة زبونة">
+      </div>
+      <button class="btn btn-success" style="width:100%;justify-content:center" onclick="doBankTx('deposit')">تأكيد الإيداع</button>`;
+  } else if (mode === 'withdraw') {
+    title.textContent = '➖ سحب من الحساب';
+    body.innerHTML = `
+      <div class="form-group" style="margin-bottom:16px">
+        <label>المبلغ (ر.ع)</label>
+        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700">
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>البيان / الملاحظة</label>
+        <input type="text" id="bankNote" placeholder="مثال: شراء قماش، دفع خياط">
+      </div>
+      <button class="btn btn-danger" style="width:100%;justify-content:center" onclick="doBankTx('withdraw')">تأكيد السحب</button>`;
+  } else {
+    title.textContent = '📋 سجل المعاملات البنكية';
+    const txs = (APP.bank.transactions || []).slice().reverse();
+    body.innerHTML = txs.length ? `
+      <div style="max-height:400px;overflow-y:auto">
+        <table style="width:100%;font-size:13px;border-collapse:collapse">
+          <thead><tr>
+            <th style="background:var(--burgundy);color:white;padding:8px 12px;text-align:right">التاريخ</th>
+            <th style="background:var(--burgundy);color:white;padding:8px 12px;text-align:right">البيان</th>
+            <th style="background:var(--burgundy);color:white;padding:8px 12px;text-align:right">النوع</th>
+            <th style="background:var(--burgundy);color:white;padding:8px 12px;text-align:right">المبلغ</th>
+            <th style="background:var(--burgundy);color:white;padding:8px 12px;text-align:right">الرصيد</th>
+          </tr></thead>
+          <tbody>${txs.map(t => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 12px;color:var(--text-muted)">${t.date}</td>
+            <td style="padding:8px 12px">${t.note||'-'}</td>
+            <td style="padding:8px 12px"><span style="color:${t.type==='deposit'?'var(--success)':'var(--danger)'}">
+              ${t.type==='deposit'?'⬆ إيداع':'⬇ سحب'}</span></td>
+            <td style="padding:8px 12px;font-weight:700;color:${t.type==='deposit'?'var(--success)':'var(--danger)'}">
+              ${t.type==='deposit'?'+':'-'}${Math.abs(t.amount).toFixed(3)} ر.ع</td>
+            <td style="padding:8px 12px;font-weight:700;color:var(--burgundy)">${t.balance.toFixed(3)} ر.ع</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>` : '<div class="empty-state"><div class="icon">🏦</div><p>لا توجد معاملات بعد</p></div>';
+  }
+  openModal('bankModal');
+}
+
+function doBankTx(type) {
+  const amount = parseFloat(document.getElementById('bankAmount').value);
+  const note   = document.getElementById('bankNote').value.trim();
+  if (!amount || amount <= 0) { showToast('أدخلي مبلغاً صحيحاً', 'error'); return; }
+
+  if (!APP.bank) APP.bank = { balance: 0, transactions: [] };
+  if (type === 'withdraw' && amount > APP.bank.balance) {
+    if (!confirm(`⚠️ المبلغ (${amount.toFixed(3)}) أكبر من الرصيد (${APP.bank.balance.toFixed(3)}). هل تريدين المتابعة؟`)) return;
+  }
+
+  APP.bank.balance = type === 'deposit'
+    ? APP.bank.balance + amount
+    : APP.bank.balance - amount;
+
+  APP.bank.transactions.push({
+    type, amount,
+    note: note || (type === 'deposit' ? 'إيداع' : 'سحب'),
+    date: new Date().toLocaleDateString('ar-OM'),
+    balance: APP.bank.balance
+  });
+
+  saveData();
+  closeModal('bankModal');
+  updateBankDisplay();
+  showToast(type === 'deposit' ? `✅ تم إيداع ${amount.toFixed(3)} ر.ع` : `✅ تم سحب ${amount.toFixed(3)} ر.ع`, 'success');
+}
+
+function updateBankDisplay() {
+  if (!APP.bank) return;
+  const balance = APP.bank.balance || 0;
+  const totalProfit = APP.orders.filter(o=>o.status!=='ملغي').reduce((s,o)=>s+(o.profit||0),0);
+  const diff = balance - totalProfit;
+
+  const balEl = document.getElementById('bankBalanceDisplay');
+  const profEl = document.getElementById('bankProfitRef');
+  const diffEl = document.getElementById('bankDiffDisplay');
+  if (!balEl) return;
+
+  balEl.textContent = balance.toFixed(3);
+  balEl.style.color = balance >= 0 ? 'var(--burgundy)' : 'var(--danger)';
+  if (profEl) { profEl.textContent = totalProfit.toFixed(3) + ' ر.ع'; profEl.style.color = totalProfit>=0?'var(--success)':'var(--danger)'; }
+  if (diffEl) {
+    diffEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(3) + ' ر.ع';
+    diffEl.style.color = diff >= 0 ? 'var(--success)' : 'var(--danger)';
+  }
+}
+
 // ===== MODAL HELPERS =====
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
@@ -3244,6 +3518,7 @@ function showToast(msg, type = 'success') {
 window.addEventListener('DOMContentLoaded', () => {
   loadData();
   refreshTypeList();
+  refreshColorList();
   document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ar-OM', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
   renderDashboard();
   checkPIN();
