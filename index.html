@@ -67,7 +67,8 @@
               APP.settings      = { ...APP.settings, ...(data.settings || {}) };
               APP.invoiceCounter = data.invoiceCounter || APP.invoiceCounter;
               if (data.bank)        APP.bank = data.bank;
-              if (data.discounts)   APP.discounts = data.discounts;
+              if (data.discounts)   APP.discounts   = data.discounts;
+              if (data.collection)  APP.collection  = data.collection;
               if (data.campaignLog) APP.campaignLog = data.campaignLog;
               if (JSON.stringify({ orders: APP.orders, fabric: APP.fabric }) !== prev) {
                 renderDashboard();
@@ -1043,6 +1044,7 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
     <div class="nav-item active" onclick="goTo('dashboard')"><span class="nav-icon">🏠</span>لوحة التحكم</div>
     <div class="nav-item" onclick="goTo('orders')"><span class="nav-icon">📋</span>الطلبات<span class="nav-badge" id="pendingBadge">0</span></div>
     <div class="nav-item" onclick="goTo('neworder')"><span class="nav-icon">➕</span>طلب جديد</div>
+    <div class="nav-item" onclick="goTo('collection')"><span class="nav-icon">👗</span>الكولكشن</div>
     <div class="nav-item" onclick="goTo('fabric')"><span class="nav-icon">📦</span>إدارة الموارد</div>
     <div class="nav-item" onclick="goTo('forecast')"><span class="nav-icon">📈</span>التوقعات</div>
     <div class="nav-item" onclick="goTo('alerts')"><span class="nav-icon">🔔</span>التنبيهات<span class="nav-badge" id="alertsBadge">0</span></div>
@@ -1547,6 +1549,115 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
     </div>
   </div>
 
+  <!-- ===== COLLECTION PAGE ===== -->
+  <div class="page" id="page-collection">
+    <div class="page-header">
+      <div>
+        <div class="page-title">👗 الكولكشن</div>
+        <div class="page-subtitle">عبايات By Lubna — تظهر مباشرة في المتجر</div>
+      </div>
+      <button class="btn btn-primary" onclick="openCollectionModal()">➕ إضافة عباية</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;background:var(--bg2);padding:6px;border-radius:12px;width:fit-content">
+      <button class="btn" id="tabReady" onclick="filterCollection('ready')"
+        style="background:var(--burgundy);color:#fff;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700">
+        ✅ جاهزة للتسليم
+      </button>
+      <button class="btn btn-outline" id="tabTailor" onclick="filterCollection('tailor')"
+        style="border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
+        ✂️ تحتاج تفصيل
+      </button>
+      <button class="btn btn-outline" id="tabAll" onclick="filterCollection('all')"
+        style="border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
+        كل الكولكشن
+      </button>
+    </div>
+
+    <div id="collectionGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px"></div>
+  </div>
+
+  <!-- Collection Modal -->
+  <div class="modal-overlay hidden" id="collectionModal">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-header">
+        <div class="modal-title" id="collectionModalTitle">👗 إضافة عباية للكولكشن</div>
+        <button class="modal-close" onclick="closeModal('collectionModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="col_id">
+        <div class="form-grid">
+          <!-- صورة العباية -->
+          <div class="form-group full">
+            <label>صورة العباية</label>
+            <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+              <label style="cursor:pointer;flex-shrink:0">
+                <div id="col_imgPreview" style="width:120px;height:150px;border-radius:12px;border:2px dashed var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden">
+                  🧕
+                </div>
+                <input type="file" id="col_imgFile" accept="image/*" style="display:none" onchange="previewColImg(this)">
+              </label>
+              <div style="flex:1;min-width:180px">
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">اضغط على الصورة لتغييرها</div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('col_imgFile').click()">📷 اختر صورة</button>
+                <button type="button" class="btn btn-outline btn-sm" style="margin-top:6px" onclick="clearColImg()">✕ حذف الصورة</button>
+                <input type="hidden" id="col_imgData">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>اسم العباية</label>
+            <input type="text" id="col_name" placeholder="مثال: عباية كلوش فاخرة">
+          </div>
+          <div class="form-group">
+            <label>النوع</label>
+            <select id="col_category">
+              <option value="ready">✅ جاهزة للتسليم الفوري</option>
+              <option value="tailor">✂️ تحتاج تفصيل</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>السعر (ر.ع)</label>
+            <input type="number" id="col_price" placeholder="0.000" step="0.5">
+          </div>
+          <div class="form-group">
+            <label>الكمية المتاحة (للجاهزة)</label>
+            <input type="number" id="col_stock" placeholder="0" min="0">
+          </div>
+
+          <!-- الألوان -->
+          <div class="form-group full">
+            <label>الألوان المتاحة</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="col_colorsDisplay"></div>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="col_colorInput" placeholder="اكتب اللون ثم اضغط +" style="flex:1" list="colorList"
+                onkeydown="if(event.key==='Enter')addColColor()">
+              <button type="button" class="btn btn-primary btn-sm" onclick="addColColor()">+</button>
+            </div>
+          </div>
+
+          <!-- المقاسات -->
+          <div class="form-group full">
+            <label>المقاسات (طول × عرض بالسم)</label>
+            <div id="col_sizesDisplay" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="addColSize()" style="width:fit-content">➕ إضافة مقاس</button>
+          </div>
+
+          <div class="form-group full">
+            <label>وصف العباية</label>
+            <textarea id="col_desc" rows="2" placeholder="تفاصيل إضافية عن العباية..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('collectionModal')">إلغاء</button>
+        <button class="btn btn-primary" onclick="saveCollection()">💾 حفظ وإضافة للمتجر</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== FORECAST ===== -->
   <div class="page" id="page-forecast">
     <div class="page-header">
@@ -1896,7 +2007,8 @@ let APP = {
   campaignLog: [], // سجل الحملات
   packaging: { bags: 0, labels: 0, wrap: 0 }, // المواد التغليفية
   packagingLog: [], // سجل حركة التغليف
-  suppliers: []    // الموردون
+  suppliers: [],   // الموردون
+  collection: []   // الكولكشن للمتجر
 };
 
 let currentEditId = null;
@@ -1947,6 +2059,7 @@ function loadData() {
       APP.sheilaFabric   = parsed.sheilaFabric   || [];
       APP.packagingLog= parsed.packagingLog|| [];
       APP.suppliers   = parsed.suppliers   || [];
+      APP.collection  = parsed.collection  || [];
       // Auto-init Firebase if config was saved
       if (APP.settings.firebaseConfig && window.initFirebase) {
         setTimeout(() => {
@@ -1986,7 +2099,8 @@ function saveData() {
         bank: APP.bank,
         packaging: APP.packaging,
         packagingLog: APP.packagingLog,
-        suppliers: APP.suppliers
+        suppliers: APP.suppliers,
+        collection: APP.collection
       }).catch(e => console.error('Firebase write error:', e));
     }
   } catch(e) { showToast('خطأ في حفظ البيانات', 'error'); }
@@ -2009,6 +2123,7 @@ function goTo(page) {
   if (page === 'orders') renderOrdersTable();
   if (page === 'neworder') initNewOrder();
   if (page === 'fabric') renderFabricPage();
+  if (page === 'collection') renderCollectionPage();
   if (page === 'forecast') renderForecast();
   if (page === 'alerts') renderAlerts();
   if (page === 'settings') loadSettings();
@@ -5028,8 +5143,224 @@ function doLogin() {
   else document.getElementById('loginError').textContent = '⚠️ Firebase غير مهيأ بعد — افتح الإعدادات وأدخل بيانات Firebase أولاً';
 }
 
+// ===== COLLECTION =====
+let colColors = [];
+let colSizes  = [];
+let colFilter = 'ready';
+
+function renderCollectionPage() {
+  filterCollection(colFilter);
+}
+
+function filterCollection(filter) {
+  colFilter = filter;
+  // Update tab styles
+  ['ready','tailor','all'].forEach(f => {
+    const btn = document.getElementById(`tab${f.charAt(0).toUpperCase()+f.slice(1)}`);
+    if (!btn) return;
+    const active = f === filter;
+    btn.style.background     = active ? 'var(--burgundy)' : 'transparent';
+    btn.style.color          = active ? '#fff' : 'var(--burgundy)';
+    btn.style.borderColor    = active ? 'var(--burgundy)' : 'var(--border)';
+  });
+
+  const grid = document.getElementById('collectionGrid');
+  if (!grid) return;
+  const items = (APP.collection||[]).filter(i => filter==='all' || i.category===filter);
+
+  if (!items.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:64px;color:var(--text-muted)">
+      <div style="font-size:56px;margin-bottom:16px">👗</div>
+      <h3 style="font-size:18px;margin-bottom:8px">لا توجد عبايات بعد</h3>
+      <p style="font-size:13px">اضغط "إضافة عباية" لإضافة أول عباية للكولكشن</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = items.map((item, i) => {
+    const realIdx = (APP.collection||[]).findIndex(x => x.id === item.id);
+    const categoryBadge = item.category === 'ready'
+      ? '<span style="background:#EAFAF1;color:#27AE60;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">✅ جاهزة</span>'
+      : '<span style="background:#FEF9E7;color:#E67E22;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">✂️ تفصيل</span>';
+    const colorsHtml = (item.colors||[]).slice(0,5).map(c =>
+      `<div style="width:18px;height:18px;border-radius:50%;background:${getColorHexAdmin(c)};border:1.5px solid var(--border)" title="${c}"></div>`
+    ).join('');
+    const sizesHtml = (item.sizes||[]).map(s =>
+      `<span style="font-size:11px;background:var(--bg2);padding:2px 8px;border-radius:6px;border:1px solid var(--border)">${s.label||''} ${s.length?s.length+'×'+s.width+'س':''}`.trim()+'</span>'
+    ).join(' ');
+
+    return `<div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 8px var(--shadow)">
+      <div style="position:relative;aspect-ratio:3/4;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:64px;overflow:hidden">
+        ${item.img ? `<img src="${item.img}" style="width:100%;height:100%;object-fit:cover">` : '🧕'}
+        <div style="position:absolute;top:10px;right:10px">${categoryBadge}</div>
+        <div style="position:absolute;top:10px;left:10px;display:flex;gap:6px">
+          <button onclick="editCollection(${realIdx})"
+            style="background:rgba(255,255,255,0.9);border:none;cursor:pointer;border-radius:8px;padding:6px 10px;font-size:13px">✏️</button>
+          <button onclick="deleteCollection(${realIdx})"
+            style="background:rgba(255,255,255,0.9);border:none;cursor:pointer;border-radius:8px;padding:6px 10px;font-size:13px">🗑️</button>
+        </div>
+      </div>
+      <div style="padding:14px">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">${item.name}</div>
+        <div style="font-size:18px;font-weight:700;color:var(--burgundy);margin-bottom:8px">${(item.price||0).toFixed(3)} ر.ع</div>
+        ${colorsHtml ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${colorsHtml}</div>` : ''}
+        ${sizesHtml  ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${sizesHtml}</div>` : ''}
+        ${item.stock ? `<div style="font-size:12px;color:var(--text-muted)">المتاح: ${item.stock} قطعة</div>` : ''}
+        ${item.desc  ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.5">${item.desc}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function getColorHexAdmin(name) {
+  const map = {
+    'أسود':'#1a1a1a','أبيض':'#f5f0eb','خمري':'#7B1B42','بنفسجي':'#6B3FA0',
+    'رمادي':'#9E9E9E','بيج':'#D4B896','ذهبي':'#C9A96E','بني':'#795548',
+    'أزرق':'#1565C0','أخضر':'#2E7D32','زيتي':'#558B2F','أحمر':'#B71C1C',
+    'وردي':'#E91E8C','كحلي':'#1A237E','فيروزي':'#00838F','كريمي':'#F5E6C8',
+  };
+  for (const [k,v] of Object.entries(map)) {
+    if ((name||'').includes(k)) return v;
+  }
+  return '#C9A96E';
+}
+
+function openCollectionModal(idx) {
+  colColors = [];
+  colSizes  = [];
+  const item = idx !== undefined ? (APP.collection||[])[idx] : null;
+  document.getElementById('collectionModalTitle').textContent = item ? '✏️ تعديل عباية' : '👗 إضافة عباية للكولكشن';
+  document.getElementById('col_id').value       = item ? item.id : '';
+  document.getElementById('col_name').value     = item?.name    || '';
+  document.getElementById('col_price').value    = item?.price   || '';
+  document.getElementById('col_stock').value    = item?.stock   || '';
+  document.getElementById('col_desc').value     = item?.desc    || '';
+  document.getElementById('col_category').value = item?.category|| 'ready';
+  document.getElementById('col_imgData').value  = item?.img     || '';
+
+  // Image preview
+  const preview = document.getElementById('col_imgPreview');
+  if (item?.img) {
+    preview.innerHTML = `<img src="${item.img}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`;
+  } else {
+    preview.innerHTML = '🧕';
+  }
+
+  // Colors
+  colColors = [...(item?.colors || [])];
+  renderColColors();
+
+  // Sizes
+  colSizes = [...(item?.sizes || [])];
+  renderColSizes();
+
+  openModal('collectionModal');
+}
+
+function editCollection(idx) { openCollectionModal(idx); }
+
+function previewColImg(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('col_imgData').value = e.target.result;
+    document.getElementById('col_imgPreview').innerHTML =
+      `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearColImg() {
+  document.getElementById('col_imgData').value  = '';
+  document.getElementById('col_imgPreview').innerHTML = '🧕';
+  document.getElementById('col_imgFile').value  = '';
+}
+
+function addColColor() {
+  const inp = document.getElementById('col_colorInput');
+  const val = inp.value.trim();
+  if (!val || colColors.includes(val)) { inp.value=''; return; }
+  colColors.push(val);
+  inp.value = '';
+  renderColColors();
+}
+
+function renderColColors() {
+  document.getElementById('col_colorsDisplay').innerHTML = colColors.map((c,i) =>
+    `<span style="display:flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px">
+      <span style="width:14px;height:14px;border-radius:50%;background:${getColorHexAdmin(c)};display:inline-block"></span>
+      ${c}
+      <button onclick="removeColColor(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;padding:0 2px">×</button>
+    </span>`
+  ).join('');
+}
+
+function removeColColor(i) { colColors.splice(i,1); renderColColors(); }
+
+function addColSize() {
+  colSizes.push({ label:'', length:'', width:'' });
+  renderColSizes();
+}
+
+function renderColSizes() {
+  document.getElementById('col_sizesDisplay').innerHTML = colSizes.map((s,i) =>
+    `<div style="display:grid;grid-template-columns:1fr 80px 80px auto;gap:8px;align-items:center">
+      <input type="text" placeholder="المقاس (مثال: S, M, L, كبير...)" value="${s.label||''}"
+        style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+        oninput="colSizes[${i}].label=this.value">
+      <input type="number" placeholder="الطول" value="${s.length||''}"
+        style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+        oninput="colSizes[${i}].length=this.value">
+      <input type="number" placeholder="العرض" value="${s.width||''}"
+        style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+        oninput="colSizes[${i}].width=this.value">
+      <button onclick="removeColSize(${i})"
+        style="background:#fde8e8;border:1px solid #f5c6c6;color:var(--danger);border-radius:6px;padding:6px 10px;cursor:pointer">🗑</button>
+    </div>`
+  ).join('');
+}
+
+function removeColSize(i) { colSizes.splice(i,1); renderColSizes(); }
+
+function saveCollection() {
+  const name = document.getElementById('col_name').value.trim();
+  if (!name) { showToast('اسم العباية مطلوب', 'error'); return; }
+
+  const item = {
+    id:       document.getElementById('col_id').value || 'col-'+Date.now(),
+    name,
+    category: document.getElementById('col_category').value,
+    price:    parseFloat(document.getElementById('col_price').value)||0,
+    stock:    parseInt(document.getElementById('col_stock').value)||0,
+    desc:     document.getElementById('col_desc').value.trim(),
+    img:      document.getElementById('col_imgData').value || '',
+    colors:   [...colColors],
+    sizes:    [...colSizes],
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!APP.collection) APP.collection = [];
+  const idxEl = document.getElementById('col_id').value;
+  const existing = APP.collection.findIndex(x => x.id === idxEl);
+  if (existing !== -1) APP.collection[existing] = item;
+  else APP.collection.push(item);
+
+  saveData();
+  closeModal('collectionModal');
+  renderCollectionPage();
+  showToast('✅ تم حفظ العباية في الكولكشن', 'success');
+}
+
+function deleteCollection(idx) {
+  if (!confirm('حذف هذه العباية من الكولكشن؟')) return;
+  APP.collection.splice(idx, 1);
+  saveData();
+  renderCollectionPage();
+  showToast('تم الحذف ✓', 'success');
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  loadData();
   refreshTypeList();
   refreshColorList();
   document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ar-OM', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
