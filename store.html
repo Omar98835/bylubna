@@ -768,14 +768,16 @@ window.__storeAuth = null;
 window.__storeUser = null;
 window.__confirmResult = null;
 
-window.initStore = function(config) {
+window.initStore = async function(config) {
   if (!config || !config.apiKey) return;
   try {
     let app;
     try { app = initializeApp(config, 'bylubna-store'); }
     catch(e) {
-      const { getApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-      app = getApp('bylubna-store');
+      try {
+        const { getApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+        app = getApp('bylubna-store');
+      } catch(e2) { console.warn('Firebase app init:', e2); }
     }
     window.__storeDB   = getDatabase(app);
     window.__storeAuth = getAuth(app);
