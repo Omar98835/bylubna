@@ -4831,22 +4831,27 @@ function openBankModal(mode) {
     body.innerHTML = `
       <div class="form-group">
         <label>المبلغ (ر.ع)</label>
-        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:22px;text-align:center;font-weight:700" onkeydown="if(event.key==='Enter')doBankTx('${mode}')">
+        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0"
+          style="font-size:22px;text-align:center;font-weight:700"
+          onkeydown="if(event.key==='Enter')doBankTx('${mode}')">
       </div>
       <div class="form-group">
         <label>البيان / الملاحظة</label>
-        <input type="text" id="bankNote" placeholder="${mode==='deposit'?'مثال: إيداع مبيعات':'مثال: سحب مصاريف'}" onkeydown="if(event.key==='Enter')doBankTx('${mode}')">
+        <input type="text" id="bankNote"
+          placeholder="${mode==='deposit'?'مثال: إيداع مبيعات':'مثال: سحب مصاريف'}"
+          onkeydown="if(event.key==='Enter')doBankTx('${mode}')">
       </div>
-      <button class="btn ${mode==='deposit'?'btn-success':'btn-danger'}" style="width:100%;justify-content:center;margin-top:8px" id="bankConfirmBtn">
+      <button class="btn ${mode==='deposit'?'btn-success':'btn-danger'}"
+        style="width:100%;justify-content:center;margin-top:8px"
+        onclick="doBankTx('${mode}')">
         ${mode==='deposit'?'✅ تأكيد الإيداع':'✅ تأكيد السحب'}
       </button>`;
-    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx(mode));
 
   } else if (mode === 'addProfit') {
-    const totalProfit = APP.orders.filter(o=>o.status!=='ملغي').reduce((s,o)=>s+(o.profit||0),0);
-    const alreadyAdded = (APP.bank.transactions||[]).filter(t=>t.type==='profit').reduce((s,t)=>s+Math.abs(t.amount),0);
-    const pending = Math.max(0, totalProfit - alreadyAdded);
-    title.textContent = '💰 إضافة الأرباح للبنك';
+    const totalProfit   = APP.orders.filter(o=>o.status!=='ملغي').reduce((s,o)=>s+(o.profit||0),0);
+    const alreadyAdded  = (APP.bank.transactions||[]).filter(t=>t.type==='profit').reduce((s,t)=>s+Math.abs(t.amount),0);
+    const pending       = Math.max(0, totalProfit - alreadyAdded);
+    title.textContent   = '💰 إضافة الأرباح للبنك';
     body.innerHTML = `
       <div style="background:var(--bg2);border-radius:10px;padding:16px;margin-bottom:16px;text-align:center">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">إجمالي الأرباح المحققة</div>
@@ -4855,14 +4860,15 @@ function openBankModal(mode) {
       </div>
       <div class="form-group">
         <label>المبلغ المراد إضافته للبنك</label>
-        <input type="number" id="bankAmount" value="${pending.toFixed(3)}" step="0.001" min="0" style="font-size:20px;text-align:center;font-weight:700">
+        <input type="number" id="bankAmount" value="${pending.toFixed(3)}" step="0.001" min="0"
+          style="font-size:20px;text-align:center;font-weight:700">
       </div>
       <div class="form-group">
         <label>ملاحظة</label>
         <input type="text" id="bankNote" value="إضافة أرباح للبنك">
       </div>
-      <button class="btn btn-success" style="width:100%;justify-content:center;margin-top:8px" id="bankConfirmBtn">✅ إضافة للرصيد</button>`;
-    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx('profit'));
+      <button class="btn btn-success" style="width:100%;justify-content:center;margin-top:8px"
+        onclick="doBankTx('profit')">✅ إضافة للرصيد</button>`;
 
   } else {
     title.textContent = '📋 سجل المعاملات البنكية';
@@ -4895,33 +4901,46 @@ function openBankModal(mode) {
 }
 
 function doBankTx(type) {
-  const amount = parseFloat(document.getElementById('bankAmount')?.value);
-  const note   = document.getElementById('bankNote')?.value.trim();
+  const amountEl = document.getElementById('bankAmount');
+  const noteEl   = document.getElementById('bankNote');
+  if (!amountEl) return;
+  const amount = parseFloat(amountEl.value);
+  const note   = noteEl?.value.trim() || '';
   if (!amount || amount <= 0) { showToast('أدخلي مبلغاً صحيحاً', 'error'); return; }
   if (!APP.bank) APP.bank = { balance: 0, transactions: [] };
+  if (typeof APP.bank.balance !== 'number') APP.bank.balance = 0;
   if (type === 'withdraw' && amount > APP.bank.balance) {
     if (!confirm(`⚠️ المبلغ (${amount.toFixed(3)}) أكبر من الرصيد (${APP.bank.balance.toFixed(3)}). هل تريدين المتابعة؟`)) return;
   }
   const signed = (type === 'withdraw') ? -amount : amount;
-  APP.bank.balance += signed;
+  APP.bank.balance = APP.bank.balance + signed;
   APP.bank.transactions.push({
     type, amount: signed,
     note: note || (type==='deposit'?'إيداع': type==='withdraw'?'سحب': type==='profit'?'أرباح':''),
     date: new Date().toLocaleDateString('ar-OM'),
     balance: APP.bank.balance
   });
-  saveData(); closeModal('bankModal'); updateBankDisplay();
-  showToast(type==='withdraw'?`✅ تم سحب ${amount.toFixed(3)} ر.ع`:`✅ تم إضافة ${amount.toFixed(3)} ر.ع`, 'success');
+  closeModal('bankModal');
+  saveData();
+  updateBankDisplay();
+  showToast(type==='withdraw' ? `✅ تم سحب ${amount.toFixed(3)} ر.ع` : `✅ تم إضافة ${amount.toFixed(3)} ر.ع`, 'success');
 }
 
 function confirmResetBank() {
   if (!confirm('تصفير رصيد البنك إلى صفر؟ سيُسجَّل كمعاملة في السجل.')) return;
   if (!APP.bank) APP.bank = { balance:0, transactions:[] };
-  APP.bank.transactions.push({ type:'reset', amount:-APP.bank.balance, note:'تصفير الرصيد',
-    date: new Date().toLocaleDateString('ar-OM'), balance:0 });
+  if (typeof APP.bank.balance !== 'number') APP.bank.balance = 0;
+  APP.bank.transactions.push({
+    type: 'reset',
+    amount: -APP.bank.balance,
+    note: 'تصفير الرصيد',
+    date: new Date().toLocaleDateString('ar-OM'),
+    balance: 0
+  });
   APP.bank.balance = 0;
-  saveData(); updateBankDisplay();
-  showToast('تم تصفير الرصيد ✓','success');
+  saveData();
+  updateBankDisplay();
+  showToast('تم تصفير الرصيد ✓', 'success');
 }
 
 function updateBankDisplay() {
