@@ -1099,6 +1099,7 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
           <button class="btn btn-outline btn-sm" onclick="openBankModal('addProfit')" style="color:var(--success);border-color:var(--success)">💰 أضف أرباح</button>
           <button class="btn btn-outline btn-sm" onclick="openBankModal('history')">📋 السجل</button>
           <button class="btn btn-outline btn-sm" onclick="confirmResetBank()" style="color:var(--danger);border-color:var(--danger)">🔄 تصفير</button>
+          <button class="btn btn-outline btn-sm" onclick="hardResetBank()" style="color:#fff;background:var(--danger);border-color:var(--danger)">🗑 مسح كامل</button>
         </div>
       </div>
       <!-- Stats row -->
@@ -4941,6 +4942,14 @@ function confirmResetBank() {
   saveData();
   updateBankDisplay();
   showToast('تم تصفير الرصيد ✓', 'success');
+}
+
+function hardResetBank() {
+  if (!confirm('⚠️ مسح رصيد البنك وكل السجل كاملاً؟\nلا يمكن التراجع.')) return;
+  APP.bank = { balance: 0, transactions: [] };
+  saveData();
+  updateBankDisplay();
+  showToast('✅ تم مسح البنك كاملاً', 'success');
 }
 
 function updateBankDisplay() {
