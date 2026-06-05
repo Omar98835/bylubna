@@ -5368,32 +5368,35 @@ function deleteCollection(idx) {
 window.addEventListener('DOMContentLoaded', () => {
   // Firebase Config مدمج تلقائياً
   const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
-  authDomain: "bylubna-f31a4.firebaseapp.com",
-  databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "bylubna-f31a4",
-  storageBucket: "bylubna-f31a4.firebasestorage.app",
-  messagingSenderId: "331210998611",
-  appId: "1:331210998611:web:e1c639a66036242fa917a6"
-};
-  if (!APP.settings.firebaseConfig || !APP.settings.firebaseConfig.apiKey) {
-    APP.settings.firebaseConfig = FIREBASE_CONFIG;
-    saveData();
-  }
-  if (window.initFirebase) window.initFirebase(FIREBASE_CONFIG);
+    apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
+    authDomain: "bylubna-f31a4.firebaseapp.com",
+    databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "bylubna-f31a4",
+    storageBucket: "bylubna-f31a4.firebasestorage.app",
+    messagingSenderId: "331210998611",
+    appId: "1:331210998611:web:e1c639a66036242fa917a6"
+  };
 
+  // حفظ الـ config في الإعدادات
+  APP.settings.firebaseConfig = FIREBASE_CONFIG;
+
+  // تحميل البيانات المحلية أولاً
+  loadData();
   refreshTypeList();
   refreshColorList();
   document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ar-OM', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
   renderDashboard();
   checkPIN();
-  // Show login if Firebase is configured but not yet authenticated
-  if (APP.settings.firebaseConfig && APP.settings.firebaseConfig.apiKey) {
-    // initFirebase was called in loadData; wait for auth state
-    setTimeout(() => {
-      if (!window.__fbCurrentUser) showLoginOverlay();
-    }, 1500);
+
+  // تهيئة Firebase تلقائياً
+  if (window.initFirebase) {
+    window.initFirebase(FIREBASE_CONFIG);
   }
+
+  // إظهار شاشة الدخول إذا لم يكن مسجلاً
+  setTimeout(() => {
+    if (!window.__fbCurrentUser) showLoginOverlay();
+  }, 2000);
 });
 </script>
 </body>
