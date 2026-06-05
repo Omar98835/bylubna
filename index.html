@@ -61,6 +61,7 @@
               const prev = JSON.stringify({ orders: APP.orders, fabric: APP.fabric });
               APP.orders        = data.orders        || APP.orders;
               APP.fabric        = data.fabric        || APP.fabric;
+              APP.sheilaFabric  = data.sheilaFabric  || APP.sheilaFabric;
               APP.abaTypes      = data.abaTypes      || APP.abaTypes;
               APP.abaColors     = data.abaColors     || APP.abaColors;
               APP.settings      = { ...APP.settings, ...(data.settings || {}) };
@@ -1084,22 +1085,35 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 
     <!-- ===== رصيد البنك ===== -->
     <div class="card mb-16" style="margin-bottom:24px;border:2px solid var(--gold)">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:16px">
         <div>
           <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">🏦 رصيد حساب By Lubna في البنك</div>
           <div style="display:flex;align-items:baseline;gap:8px">
-            <div id="bankBalanceDisplay" style="font-size:32px;font-weight:700;color:var(--burgundy)">0.000</div>
+            <div id="bankBalanceDisplay" style="font-size:36px;font-weight:700;color:var(--burgundy)">0.000</div>
             <div style="font-size:14px;color:var(--text-muted)">ر.ع</div>
           </div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-            صافي الربح المحقق: <span id="bankProfitRef" style="font-weight:700;color:var(--success)">0.000 ر.ع</span>
-            &nbsp;|&nbsp; فرق الرصيد: <span id="bankDiffDisplay" style="font-weight:700">0.000 ر.ع</span>
-          </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-success btn-sm" onclick="openBankModal('deposit')">➕ إيداع</button>
           <button class="btn btn-danger btn-sm" onclick="openBankModal('withdraw')">➖ سحب</button>
+          <button class="btn btn-outline btn-sm" onclick="openBankModal('addProfit')" style="color:var(--success);border-color:var(--success)">💰 أضف أرباح</button>
           <button class="btn btn-outline btn-sm" onclick="openBankModal('history')">📋 السجل</button>
+          <button class="btn btn-outline btn-sm" onclick="confirmResetBank()" style="color:var(--danger);border-color:var(--danger)">🔄 تصفير</button>
+        </div>
+      </div>
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">💰 صافي الأرباح المحققة</div>
+          <div id="bankProfitRef" style="font-size:18px;font-weight:700;color:var(--success)">0.000 ر.ع</div>
+        </div>
+        <div style="text-align:center;border-right:1px solid var(--border);border-left:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">📊 الرصيد + الأرباح</div>
+          <div id="bankTotalDisplay" style="font-size:18px;font-weight:700;color:var(--burgundy)">0.000 ر.ع</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">📈 فرق الرصيد</div>
+          <div id="bankDiffDisplay" style="font-size:18px;font-weight:700">0.000 ر.ع</div>
         </div>
       </div>
     </div>
@@ -1280,15 +1294,20 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
         </div>
       </div>
 
-      <div class="form-grid" style="margin-top:0">
-        <div class="form-group">
-          <label>كود الخصم (اختياري)</label>
-          <div style="display:flex;gap:8px">
-            <input type="text" id="f_discountCode" placeholder="أدخلي الكود هنا" style="flex:1;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
-            <button type="button" class="btn btn-outline btn-sm" onclick="applyDiscountCode()" style="white-space:nowrap;flex-shrink:0">✅ تحقق</button>
-          </div>
-          <div id="discountStatus" style="margin-top:6px;font-size:12px;font-weight:600"></div>
+      <!-- كود الخصم — بعرض كامل منفصل -->
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:6px">🏷️ كود الخصم (اختياري)</label>
+        <div style="display:flex;gap:8px;max-width:400px">
+          <input type="text" id="f_discountCode" placeholder="أدخلي الكود هنا"
+            style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;text-transform:uppercase;font-family:inherit"
+            oninput="this.value=this.value.toUpperCase()">
+          <button type="button" class="btn btn-outline" onclick="applyDiscountCode()"
+            style="white-space:nowrap;flex-shrink:0;padding:10px 18px;font-size:13px">✅ تحقق</button>
         </div>
+        <div id="discountStatus" style="margin-top:6px;font-size:12px;font-weight:600"></div>
+      </div>
+
+      <div class="form-grid" style="margin-top:0">
         <div class="form-group">
           <label>رسوم الخياط (ر.ع)</label>
           <input type="number" id="f_tailor" placeholder="0" step="0.5" oninput="calcProfit()">
@@ -1347,27 +1366,48 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
         <div class="page-title">📦 إدارة الموارد</div>
         <div class="page-subtitle">إدارة القماش والمواد التغليفية والموردين</div>
       </div>
-      <button class="btn btn-primary" onclick="showAddFabric()">➕ إضافة قماش</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="showAddFabric('abaya')">➕ قماش عباية</button>
+        <button class="btn btn-outline" onclick="showAddFabric('sheila')" style="border-color:var(--gold);color:var(--gold)">➕ قماش شيلة</button>
+      </div>
     </div>
 
     <div class="card mb-16">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
-          <label>القماش لعباية واحدة (متر)</label>
+          <label>قماش العباية (متر/عباية)</label>
           <input type="number" id="metersPerAbaya" value="3" step="0.5" oninput="saveSetting('metersPerAbaya',this.value)">
+        </div>
+        <div>
+          <label>قماش الشيلة (متر/شيلة)</label>
+          <input type="number" id="metersPerSheila" value="2" step="0.5" oninput="saveSetting('metersPerSheila',this.value)">
         </div>
         <div>
           <label>حجم الطاقة (متر)</label>
           <input type="number" id="bundleSize" value="23" step="1" oninput="saveSetting('bundleSize',this.value)">
         </div>
-        <div style="display:flex;align-items:flex-end">
-          <div class="alert alert-info" style="margin:0;flex:1">✦ التنبيه يظهر تلقائياً عند نقص القماش</div>
-        </div>
       </div>
     </div>
 
     <div id="fabricAlerts"></div>
-    <div class="fabric-grid" id="fabricGrid"></div>
+
+    <!-- أقمشة العبايات -->
+    <div class="card mb-16">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:15px;font-weight:700;color:var(--burgundy)">🧕 أقمشة العبايات</div>
+        <span id="abaFabricCount" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+      <div class="fabric-grid" id="fabricGrid"></div>
+    </div>
+
+    <!-- أقمشة الشيلات -->
+    <div class="card mb-16">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:15px;font-weight:700;color:var(--gold)">🧣 أقمشة الشيلات</div>
+        <span id="sheilaFabricCount" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+      <div class="fabric-grid" id="sheilaFabricGrid"></div>
+    </div>
 
     <!-- ===== قسم المواد التغليفية ===== -->
     <div class="card mt-16">
@@ -1761,26 +1801,20 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 <div class="modal-overlay hidden" id="fabricModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
-      <div class="modal-title">🧵 إضافة / تعديل قماش</div>
+      <div class="modal-title" id="fabricModalTitle">🧵 إضافة قماش</div>
       <button class="modal-close" onclick="closeModal('fabricModal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="fm_id">
+      <input type="hidden" id="fm_fabricType" value="abaya">
       <div class="form-grid">
-
-        <!-- Color name + color picker side by side -->
         <div class="form-group full">
           <label>اسم اللون / نوع القماش</label>
           <div style="display:flex;gap:10px;align-items:center">
             <input type="text" id="fm_color" placeholder="مثال: أسود، خمري، Monaco Crep" style="flex:1">
-            <!-- Color picker trigger -->
             <div style="position:relative;flex-shrink:0">
-              <div id="fm_colorPreview"
-                onclick="document.getElementById('fm_colorPicker').click()"
-                title="اختاري لون الأيقونة"
-                style="width:44px;height:44px;border-radius:50%;border:3px solid var(--border);cursor:pointer;background:#C9A96E;transition:transform 0.15s;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)"
-                onmouseenter="this.style.transform='scale(1.12)'"
-                onmouseleave="this.style.transform='scale(1)'">
+              <div id="fm_colorPreview" onclick="document.getElementById('fm_colorPicker').click()"
+                style="width:44px;height:44px;border-radius:50%;border:3px solid var(--border);cursor:pointer;background:#C9A96E;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
                 <span style="font-size:16px;pointer-events:none">🎨</span>
               </div>
               <input type="color" id="fm_colorPicker" value="#C9A96E"
@@ -1788,11 +1822,7 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
                 oninput="document.getElementById('fm_colorPreview').style.background=this.value">
             </div>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:5px">
-            اضغطي على الدائرة لاختيار لون الأيقونة
-          </div>
         </div>
-
         <div class="form-group">
           <label>عدد الأمتار المتوفرة</label>
           <input type="number" id="fm_meters" placeholder="0" step="0.5">
@@ -1837,7 +1867,8 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 // ===== DATA STORAGE =====
 let APP = {
   orders: [],
-  fabric: [],
+  fabric: [],        // أقمشة العبايات
+  sheilaFabric: [],  // أقمشة الشيلات
   abaTypes: ['عباية أزرار','عباية شك خرز','عباية بسيطة','عباية كلوش','عباية مطرزة','عباية كيب'],
   abaColors: ['أسود','خمري','رمادي','أزرق','أخضر','أصفر','بني','أبيض'],
   settings: {
@@ -1852,6 +1883,7 @@ let APP = {
     siteUrl: '',
     firebaseConfig: null,
     // حملة الخصم التلقائي
+    metersPerSheila: 2,
     autoDiscount: false,       // هل الحملة فعّالة؟
     autoDiscountPct: 10,       // نسبة الخصم %
     autoDiscountDays: 30,      // صلاحية كل كود (أيام)
@@ -1910,7 +1942,8 @@ function loadData() {
       APP = { ...APP, ...parsed };
       APP.settings    = { ...APP.settings,    ...(parsed.settings    || {}) };
       APP.bank        = parsed.bank        || { balance: 0, transactions: [] };
-      APP.packaging   = parsed.packaging   || { bags: 0, labels: 0, wrap: 0 };
+      APP.packaging      = parsed.packaging      || { bags: 0, labels: 0, wrap: 0 };
+      APP.sheilaFabric   = parsed.sheilaFabric   || [];
       APP.packagingLog= parsed.packagingLog|| [];
       APP.suppliers   = parsed.suppliers   || [];
       // Auto-init Firebase if config was saved
@@ -1942,6 +1975,7 @@ function saveData() {
       window.__fbSet(window.__fbRef2(), {
         orders: APP.orders,
         fabric: APP.fabric,
+        sheilaFabric: APP.sheilaFabric,
         abaTypes: APP.abaTypes,
         abaColors: APP.abaColors,
         discounts: APP.discounts,
@@ -2342,22 +2376,51 @@ function renderOrdersTable() {
 function quickStatus(id, status) {
   if (!status) return;
   const order = APP.orders.find(o => o.id === id);
-  if (order) {
-    const wasDelivered = order.status === 'تم التسليم';
-    order.status = status;
-    // خصم مواد التغليف عند التسليم (مرة واحدة فقط)
-    if (status === 'تم التسليم' && !wasDelivered) {
-      const totalQty = order.items
-        ? order.items.reduce((s,it) => s + (it.qty||1), 0)
-        : (order.qty || 1);
-      deductPackaging(totalQty, order.bill);
-      showToast(`📦 تم خصم ${totalQty} وحدة من مواد التغليف`, 'info');
-    }
-    saveData();
-    renderOrdersTable();
-    updateBadges();
-    showToast('تم تحديث الحالة ✓', 'success');
+  if (!order) return;
+
+  const wasDelivered = order.status === 'تم التسليم';
+  const nowDelivered = status === 'تم التسليم';
+
+  // خصم مواد التغليف عند التسليم (مرة واحدة فقط)
+  if (nowDelivered && !wasDelivered) {
+    const totalQty = order.items
+      ? order.items.reduce((s,it) => s+(it.qty||1), 0)
+      : (order.qty||1);
+    const sheilaCount = order.items
+      ? order.items.filter(it=>it.sheilaId).reduce((s,it)=>s+(it.qty||1), 0)
+      : 0;
+    deductPackaging(totalQty, order.bill, sheilaCount);
+    showToast(`📦 تم خصم ${totalQty} عباية + ${sheilaCount} شيلة من مواد التغليف`, 'info');
   }
+
+  // إرجاع مواد التغليف عند التراجع عن التسليم
+  if (wasDelivered && !nowDelivered) {
+    if (!APP.packaging) APP.packaging = { bags:0, labels:0, wrap:0 };
+    if (!APP.packagingLog) APP.packagingLog = [];
+    const totalQty = order.items
+      ? order.items.reduce((s,it) => s+(it.qty||1), 0)
+      : (order.qty||1);
+    const sheilaCount = order.items
+      ? order.items.filter(it=>it.sheilaId).reduce((s,it)=>s+(it.qty||1), 0)
+      : 0;
+    const date = new Date().toLocaleDateString('ar-OM');
+    ['bags','wrap'].forEach(k => {
+      APP.packaging[k] = (APP.packaging[k]||0) + totalQty;
+      APP.packagingLog.push({ date, item:k, type:'add', qty:totalQty,
+        reason:`إلغاء تسليم طلب ${order.bill}`, balance:APP.packaging[k] });
+    });
+    const totalLabels = totalQty + sheilaCount;
+    APP.packaging.labels = (APP.packaging.labels||0) + totalLabels;
+    APP.packagingLog.push({ date, item:'labels', type:'add', qty:totalLabels,
+      reason:`إلغاء تسليم طلب ${order.bill}`, balance:APP.packaging.labels });
+    showToast(`↩️ تم إرجاع مواد التغليف للمخزون`, 'info');
+  }
+
+  order.status = status;
+  saveData();
+  renderOrdersTable();
+  updateBadges();
+  showToast('تم تحديث الحالة ✓', 'success');
 }
 
 // ===== BULK SELECTION =====
@@ -2498,49 +2561,66 @@ let abaItems = []; // [{color, type, qty, price}]
 function renderAbaItems() {
   const container = document.getElementById('abaItemsContainer');
   if (!container) return;
-  if (!abaItems.length) abaItems = [{ color: '', type: '', qty: 1, price: 0 }];
+  if (!abaItems.length) abaItems = [{ color: '', type: '', qty: 1, price: 0, sheilaId: '' }];
+  const sheilaOptions = '<option value="">-- بدون شيلة --</option>' +
+    (APP.sheilaFabric||[]).map(f=>`<option value="${f.id}">${f.color}</option>`).join('');
+  const fabricOptions = '<option value="">-- اختر لون القماش --</option>' +
+    (APP.fabric||[]).map(f=>`<option value="${f.id}">${f.color}</option>`).join('');
+
   container.innerHTML = abaItems.map((it, i) => `
-    <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:2fr 2fr 80px 100px auto;gap:8px;align-items:end">
-      <div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">اللون</div>
-        <input type="text" value="${it.color||''}" list="colorList" placeholder="أسود، خمري..."
-          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
-          oninput="abaItems[${i}].color=this.value;updateItemsTotal()">
+    <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:2fr 2fr 70px 110px auto;gap:8px;align-items:end;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">لون قماش العباية</div>
+          <select class="abaya-fabric-select" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+            onchange="abaItems[${i}].fabricId=this.value;abaItems[${i}].color=this.options[this.selectedIndex].text;updateItemsTotal()">
+            ${fabricOptions.replace(`value="${it.fabricId||''}"`,`value="${it.fabricId||''}" selected`)}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">النوع / الوصف</div>
+          <input type="text" value="${it.type||''}" list="typeList" placeholder="عباية بسيطة..."
+            style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+            oninput="abaItems[${i}].type=this.value;updateItemsTotal()">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">الكمية</div>
+          <input type="number" value="${it.qty||1}" min="1"
+            style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+            oninput="abaItems[${i}].qty=parseInt(this.value)||1;updateItemsTotal()">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">السعر (ر.ع)</div>
+          <input type="number" value="${it.price||''}" step="0.5" placeholder="0"
+            style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+            oninput="abaItems[${i}].price=parseFloat(this.value)||0;updateItemsTotal()">
+        </div>
+        <div style="padding-bottom:2px">
+          ${abaItems.length > 1 ? `<button type="button" onclick="removeAbaItem(${i})"
+            style="background:#fde8e8;border:1px solid #f5c6c6;color:var(--danger);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px">🗑</button>` : '<div style="width:36px"></div>'}
+        </div>
       </div>
-      <div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">النوع / الوصف</div>
-        <input type="text" value="${it.type||''}" list="typeList" placeholder="عباية بسيطة..."
-          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
-          oninput="abaItems[${i}].type=this.value;updateItemsTotal()">
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">الكمية</div>
-        <input type="number" value="${it.qty||1}" min="1"
-          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
-          oninput="abaItems[${i}].qty=parseInt(this.value)||1;updateItemsTotal()">
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">السعر (ر.ع)</div>
-        <input type="number" value="${it.price||''}" step="0.5" placeholder="0"
-          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
-          oninput="abaItems[${i}].price=parseFloat(this.value)||0;updateItemsTotal()">
-      </div>
-      <div style="padding-bottom:2px">
-        ${abaItems.length > 1 ? `<button type="button" onclick="removeAbaItem(${i})"
-          style="background:#fde8e8;border:1px solid #f5c6c6;color:var(--danger);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px">🗑</button>` : '<div style="width:36px"></div>'}
+      <!-- شيلة -->
+      <div style="display:flex;align-items:center;gap:10px;background:var(--card);border-radius:8px;padding:8px 12px">
+        <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">🧣 مع شيلة؟</span>
+        <select class="sheila-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+          onchange="abaItems[${i}].sheilaId=this.value;updateItemsTotal()">
+          ${sheilaOptions.replace(`value="${it.sheilaId||''}"`,`value="${it.sheilaId||''}" selected`)}
+        </select>
+        ${it.sheilaId ? `<span style="font-size:11px;color:var(--gold)">✦ سيُخصم ${APP.settings.metersPerSheila||2} م من الشيلة + يبل</span>` : ''}
       </div>
     </div>`).join('');
   updateItemsTotal();
 }
 
 function addAbaItem() {
-  abaItems.push({ color: '', type: '', qty: 1, price: 0 });
+  abaItems.push({ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '' });
   renderAbaItems();
 }
 
 function removeAbaItem(i) {
   abaItems.splice(i, 1);
-  if (!abaItems.length) abaItems = [{ color: '', type: '', qty: 1, price: 0 }];
+  if (!abaItems.length) abaItems = [{ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '' }];
   renderAbaItems();
 }
 
@@ -2591,7 +2671,7 @@ function initNewOrder() {
   const dSt = document.getElementById('discountStatus');
   if (dSt) dSt.innerHTML = '';
   // Reset multi-item list
-  abaItems = [{ color: '', type: '', qty: 1, price: 0 }];
+  abaItems = [{ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '' }];
   renderAbaItems();
 }
 
@@ -2725,14 +2805,39 @@ function saveOrder() {
     if (idx !== -1) {
       const oldOrder = APP.orders[idx];
       const mpa = APP.settings.metersPerAbaya || 3;
-      // Restore old fabric meters
-      const oldColorKey = (oldOrder.color || '').toLowerCase();
-      const oldFItem = APP.fabric.find(f => f.color.toLowerCase().includes(oldColorKey));
-      if (oldFItem) oldFItem.meters += (oldOrder.qty || 1) * mpa;
-      // Deduct new fabric meters
-      const newColorKey = order.color.toLowerCase();
-      const newFItem = APP.fabric.find(f => f.color.toLowerCase().includes(newColorKey));
-      if (newFItem) newFItem.meters = Math.max(0, newFItem.meters - (totalQty * mpa));
+      const mps = APP.settings.metersPerSheila || 2;
+
+      // أرجع قماش العبايات القديم
+      if (oldOrder.items && oldOrder.items.length) {
+        oldOrder.items.forEach(it => {
+          if (it.fabricId) {
+            const f = APP.fabric.find(x=>x.id===it.fabricId);
+            if (f) f.meters += (it.qty||1)*mpa;
+          }
+          if (it.sheilaId) {
+            const sf = APP.sheilaFabric.find(x=>x.id===it.sheilaId);
+            if (sf) sf.meters += (it.qty||1)*mps;
+          }
+        });
+      } else {
+        // طلب قديم بدون items
+        const oldColorKey = (oldOrder.color||'').toLowerCase();
+        const oldFItem = APP.fabric.find(f=>f.color.toLowerCase().includes(oldColorKey));
+        if (oldFItem) oldFItem.meters += (oldOrder.qty||1)*mpa;
+      }
+
+      // اخصم القماش الجديد
+      validItems.forEach(it => {
+        if (it.fabricId) {
+          const f = APP.fabric.find(x=>x.id===it.fabricId);
+          if (f) f.meters = Math.max(0, f.meters - (it.qty||1)*mpa);
+        }
+        if (it.sheilaId) {
+          const sf = APP.sheilaFabric.find(x=>x.id===it.sheilaId);
+          if (sf) sf.meters = Math.max(0, sf.meters - (it.qty||1)*mps);
+        }
+      });
+
       APP.orders[idx] = order;
     }
     showToast('تم تعديل الطلب ✓', 'success');
@@ -2750,14 +2855,19 @@ function saveOrder() {
     }
     // توليد كود خصم تلقائي للطلب الجديد (إذا كانت الحملة فعّالة)
     order._autoDiscountCode = autoGenerateDiscountForOrder(order);
-    // Deduct fabric
+    // خصم أقمشة العبايات (بحسب fabricId)
     const mpa = APP.settings.metersPerAbaya || 3;
-    const colorKey = order.color.toLowerCase();
-    const fItem = APP.fabric.find(f => f.color.toLowerCase().includes(colorKey));
-    if (fItem) {
-      fItem.meters = Math.max(0, fItem.meters - (totalQty * mpa));
-      showToast(`تم خصم ${totalQty * mpa} متر من مخزون القماش`, 'info');
-    }
+    const mps = APP.settings.metersPerSheila || 2;
+    validItems.forEach(it => {
+      if (it.fabricId) {
+        const fItem = APP.fabric.find(f=>f.id===it.fabricId);
+        if (fItem) fItem.meters = Math.max(0, fItem.meters - (it.qty||1)*mpa);
+      }
+      if (it.sheilaId) {
+        const sf = APP.sheilaFabric.find(f=>f.id===it.sheilaId);
+        if (sf) sf.meters = Math.max(0, sf.meters - (it.qty||1)*mps);
+      }
+    });
     showToast('تم حفظ الطلب ✓', 'success');
   }
 
@@ -2812,14 +2922,24 @@ function deleteOrder(id) {
 
   const order = APP.orders.find(o => o.id === id);
   if (order && order.status !== 'ملغي') {
-    // Restore fabric meters
     const mpa = APP.settings.metersPerAbaya || 3;
-    const colorKey = (order.color || '').toLowerCase();
-    const fItem = APP.fabric.find(f => f.color.toLowerCase().includes(colorKey));
-    if (fItem) {
-      const restored = (order.qty || 1) * mpa;
-      fItem.meters = fItem.meters + restored;
-      showToast(`↩️ تم إرجاع ${restored} متر إلى مخزون القماش`, 'info');
+    const mps = APP.settings.metersPerSheila || 2;
+    if (order.items && order.items.length) {
+      order.items.forEach(it => {
+        if (it.fabricId) {
+          const fItem = APP.fabric.find(f=>f.id===it.fabricId);
+          if (fItem) fItem.meters += (it.qty||1)*mpa;
+        }
+        if (it.sheilaId) {
+          const sf = APP.sheilaFabric.find(f=>f.id===it.sheilaId);
+          if (sf) sf.meters += (it.qty||1)*mps;
+        }
+      });
+    } else {
+      // طلب قديم
+      const colorKey = (order.color||'').toLowerCase();
+      const fItem = APP.fabric.find(f=>f.color.toLowerCase().includes(colorKey));
+      if (fItem) fItem.meters += (order.qty||1)*mpa;
     }
   }
 
@@ -3423,73 +3543,104 @@ ${APP.settings.thanks}`;
 }
 
 // ===== FABRIC =====
+function buildFabricCard(f, type) {
+  const bg = f.hexColor || '#C9A96E';
+  const mps = type === 'sheila' ? (APP.settings.metersPerSheila||2) : (APP.settings.metersPerAbaya||3);
+  const possible = Math.floor(f.meters / mps);
+  const isLow = f.meters < (f.minAlert||6);
+  const r=parseInt(bg.slice(1,3),16), g=parseInt(bg.slice(3,5),16), b=parseInt(bg.slice(5,7),16);
+  const lum=(0.299*r+0.587*g+0.114*b)/255;
+  const dotBorder = lum > 0.85 ? '2px solid var(--border)' : '2px solid transparent';
+  const label = type === 'sheila' ? '🧣 شيلة' : '👗 عباية';
+  return `<div class="fabric-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="fabric-color-dot" style="background:${bg};border:${dotBorder};box-shadow:0 2px 8px rgba(0,0,0,0.18)"></div>
+      <div class="flex gap-8">
+        <button class="btn btn-outline btn-sm" onclick="editFabric('${f.id}','${type}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFabric('${f.id}','${type}')">🗑</button>
+      </div>
+    </div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px">${f.color}</div>
+    <div style="font-size:11px;color:${type==='sheila'?'var(--gold)':'var(--burgundy)'};margin-bottom:6px">${label}</div>
+    ${isLow ? '<div class="alert alert-warning" style="padding:6px 10px;font-size:12px;margin-bottom:8px">⚠️ مخزون منخفض</div>' : ''}
+    <div style="font-size:12px;color:var(--text-muted);line-height:2">
+      📏 الأمتار: <strong>${f.meters}</strong> م<br>
+      ${type==='sheila'?'🧣':'👗'} ممكن: <strong>${possible}</strong><br>
+      💰 التكلفة: <strong>${(f.cost||0).toFixed(3)}</strong> ر.ع/م
+    </div>
+    ${f.note ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);background:var(--bg2);padding:8px;border-radius:6px">${f.note}</div>` : ''}
+  </div>`;
+}
+
 function renderFabricPage() {
-  document.getElementById('metersPerAbaya').value = APP.settings.metersPerAbaya||3;
-  document.getElementById('bundleSize').value = APP.settings.bundleSize||23;
+  const mpaEl = document.getElementById('metersPerAbaya');
+  const mpsEl = document.getElementById('metersPerSheila');
+  const bsEl  = document.getElementById('bundleSize');
+  if (mpaEl) mpaEl.value = APP.settings.metersPerAbaya||3;
+  if (mpsEl) mpsEl.value = APP.settings.metersPerSheila||2;
+  if (bsEl)  bsEl.value  = APP.settings.bundleSize||23;
 
   renderPackagingUI();
   renderSuppliersGrid();
+  refreshSheilaDroplists();
 
-  // Fabric alerts
-  const alerts = APP.fabric.filter(f => f.meters < (f.minAlert||6));
-  document.getElementById('fabricAlerts').innerHTML = alerts.map(f =>
-    `<div class="alert alert-warning">⚠️ قماش ${f.color}: متبقي ${f.meters} متر فقط (أقل من ${f.minAlert} متر)</div>`
+  // Alerts — both lists
+  const allFabrics = [...(APP.fabric||[]).map(f=>({...f,_type:'abaya'})), ...(APP.sheilaFabric||[]).map(f=>({...f,_type:'sheila'}))];
+  document.getElementById('fabricAlerts').innerHTML = allFabrics.filter(f=>f.meters<(f.minAlert||6)).map(f=>
+    `<div class="alert alert-warning">⚠️ ${f._type==='sheila'?'شيلة':'قماش عباية'} ${f.color}: متبقي ${f.meters} متر</div>`
   ).join('');
 
-  // Fabric grid
-  document.getElementById('fabricGrid').innerHTML = APP.fabric.map(f => {
-    // Use saved hexColor directly — no more guessing from name
-    const bg = f.hexColor || '#C9A96E';
-    const mpa = APP.settings.metersPerAbaya||3;
-    const possibleAbaya = Math.floor(f.meters / mpa);
-    const isLow = f.meters < (f.minAlert||6);
-    // Determine text color on the dot (white for dark bg, dark for light bg)
-    const r = parseInt(bg.slice(1,3),16), g = parseInt(bg.slice(3,5),16), b = parseInt(bg.slice(5,7),16);
-    const luminance = (0.299*r + 0.587*g + 0.114*b)/255;
-    const dotBorder = luminance > 0.85 ? '2px solid var(--border)' : '2px solid transparent';
-    return `<div class="fabric-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div class="fabric-color-dot" style="background:${bg};border:${dotBorder};box-shadow:0 2px 8px rgba(0,0,0,0.18)"></div>
-        <div class="flex gap-8">
-          <button class="btn btn-outline btn-sm" onclick="editFabric('${f.id}')">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteFabric('${f.id}')">🗑</button>
-        </div>
-      </div>
-      <div style="font-weight:700;font-size:14px;margin-bottom:8px">${f.color}</div>
-      ${isLow ? '<div class="alert alert-warning" style="padding:6px 10px;font-size:12px;margin-bottom:8px">⚠️ مخزون منخفض</div>' : ''}
-      <div style="font-size:12px;color:var(--text-muted);line-height:2">
-        📏 الأمتار المتوفرة: <strong>${f.meters}</strong> م<br>
-        👗 عدد العبايات الممكنة: <strong>${possibleAbaya}</strong><br>
-        💰 تكلفة المتر: <strong>${(f.cost||0).toFixed(3)}</strong> ر.ع
-      </div>
-      ${f.note ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);background:var(--bg2);padding:8px;border-radius:6px">${f.note}</div>` : ''}
-    </div>`;
-  }).join('') || '<div class="empty-state"><div class="icon">🧵</div><p>لا يوجد قماش مضاف بعد</p></div>';
+  // Abaya grid
+  const ag = document.getElementById('fabricGrid');
+  const sc = document.getElementById('abaFabricCount');
+  if (ag) ag.innerHTML = (APP.fabric||[]).map(f=>buildFabricCard(f,'abaya')).join('') ||
+    '<div class="empty-state"><div class="icon">🧕</div><p>لا يوجد قماش عبايات بعد</p></div>';
+  if (sc) sc.textContent = (APP.fabric||[]).length + ' نوع';
+
+  // Sheila grid
+  const sg = document.getElementById('sheilaFabricGrid');
+  const ssc = document.getElementById('sheilaFabricCount');
+  if (sg) sg.innerHTML = (APP.sheilaFabric||[]).map(f=>buildFabricCard(f,'sheila')).join('') ||
+    '<div class="empty-state"><div class="icon">🧣</div><p>لا يوجد قماش شيلات بعد</p></div>';
+  if (ssc) ssc.textContent = (APP.sheilaFabric||[]).length + ' نوع';
 }
 
-function showAddFabric() {
+function refreshSheilaDroplists() {
+  // يُحدِّث dropdown الشيلات في فورم الطلب
+  document.querySelectorAll('.sheila-select').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">-- بدون شيلة --</option>' +
+      (APP.sheilaFabric||[]).map(f=>`<option value="${f.id}">${f.color}</option>`).join('');
+    if (cur) sel.value = cur;
+  });
+}
+
+function showAddFabric(type='abaya') {
   document.getElementById('fm_id').value = '';
+  document.getElementById('fm_fabricType').value = type;
+  document.getElementById('fabricModalTitle').textContent = type==='sheila' ? '🧣 إضافة قماش شيلة' : '🧕 إضافة قماش عباية';
   document.getElementById('fm_color').value = '';
   document.getElementById('fm_meters').value = '';
   document.getElementById('fm_cost').value = '';
   document.getElementById('fm_minAlert').value = 6;
   document.getElementById('fm_note').value = '';
-  // Reset color picker to default gold
-  document.getElementById('fm_colorPicker').value = '#C9A96E';
-  document.getElementById('fm_colorPreview').style.background = '#C9A96E';
+  document.getElementById('fm_colorPicker').value = type==='sheila' ? '#C9A96E' : '#2C1A12';
+  document.getElementById('fm_colorPreview').style.background = type==='sheila' ? '#C9A96E' : '#2C1A12';
   openModal('fabricModal');
 }
 
-function editFabric(id) {
-  const f = APP.fabric.find(x => x.id === id);
+function editFabric(id, type='abaya') {
+  const list = type==='sheila' ? APP.sheilaFabric : APP.fabric;
+  const f = list.find(x => x.id === id);
   if (!f) return;
   document.getElementById('fm_id').value = f.id;
+  document.getElementById('fm_fabricType').value = type;
+  document.getElementById('fabricModalTitle').textContent = type==='sheila' ? '🧣 تعديل قماش شيلة' : '🧕 تعديل قماش عباية';
   document.getElementById('fm_color').value = f.color;
   document.getElementById('fm_meters').value = f.meters;
   document.getElementById('fm_cost').value = f.cost;
   document.getElementById('fm_minAlert').value = f.minAlert||6;
   document.getElementById('fm_note').value = f.note||'';
-  // Load saved color or fallback
   const hex = f.hexColor || '#C9A96E';
   document.getElementById('fm_colorPicker').value = hex;
   document.getElementById('fm_colorPreview').style.background = hex;
@@ -3497,31 +3648,30 @@ function editFabric(id) {
 }
 
 function saveFabric() {
-  const id = document.getElementById('fm_id').value || 'fab-'+Date.now();
+  const id   = document.getElementById('fm_id').value || 'fab-'+Date.now();
+  const type = document.getElementById('fm_fabricType').value || 'abaya';
   const color = document.getElementById('fm_color').value.trim();
   if (!color) { showToast('يجب إدخال اسم اللون', 'error'); return; }
   const fabric = {
     id, color,
-    hexColor: document.getElementById('fm_colorPicker').value || '#C9A96E',
-    meters: parseFloat(document.getElementById('fm_meters').value)||0,
-    cost: parseFloat(document.getElementById('fm_cost').value)||0,
-    minAlert: parseFloat(document.getElementById('fm_minAlert').value)||6,
-    note: document.getElementById('fm_note').value.trim()
+    hexColor:  document.getElementById('fm_colorPicker').value || '#C9A96E',
+    meters:    parseFloat(document.getElementById('fm_meters').value)||0,
+    cost:      parseFloat(document.getElementById('fm_cost').value)||0,
+    minAlert:  parseFloat(document.getElementById('fm_minAlert').value)||6,
+    note:      document.getElementById('fm_note').value.trim()
   };
-  const idx = APP.fabric.findIndex(f => f.id === id);
-  if (idx !== -1) APP.fabric[idx] = fabric;
-  else APP.fabric.push(fabric);
-  saveData();
-  closeModal('fabricModal');
-  renderFabricPage();
+  const list = type==='sheila' ? APP.sheilaFabric : APP.fabric;
+  const idx = list.findIndex(f => f.id === id);
+  if (idx !== -1) list[idx] = fabric; else list.push(fabric);
+  saveData(); closeModal('fabricModal'); renderFabricPage();
   showToast('تم حفظ القماش ✓', 'success');
 }
 
-function deleteFabric(id) {
+function deleteFabric(id, type='abaya') {
   if (!confirm('حذف هذا القماش؟')) return;
-  APP.fabric = APP.fabric.filter(f => f.id !== id);
-  saveData();
-  renderFabricPage();
+  if (type==='sheila') APP.sheilaFabric = APP.sheilaFabric.filter(f=>f.id!==id);
+  else APP.fabric = APP.fabric.filter(f=>f.id!==id);
+  saveData(); renderFabricPage();
 }
 
 // ===== PACKAGING =====
@@ -3587,20 +3737,24 @@ function addPackaging(type) {
   showToast(`✅ تم إضافة ${qty} ${type === 'bags' ? 'كيس' : type === 'labels' ? 'يبل' : 'قطعة تغليف'}`, 'success');
 }
 
-function deductPackaging(qty, billNo) {
+function deductPackaging(qty, billNo, sheilaCount) {
   if (!APP.packaging) APP.packaging = { bags:0, labels:0, wrap:0 };
   if (!APP.packagingLog) APP.packagingLog = [];
-  const items = ['bags','labels','wrap'];
-  items.forEach(k => {
-    const before = APP.packaging[k] || 0;
+  const date = new Date().toLocaleDateString('ar-OM');
+  // أكياس وورق: عدد العبايات فقط
+  ['bags','wrap'].forEach(k => {
+    const before = APP.packaging[k]||0;
     APP.packaging[k] = Math.max(0, before - qty);
-    APP.packagingLog.push({
-      date: new Date().toLocaleDateString('ar-OM'),
-      item: k, type: 'deduct', qty: Math.min(qty, before),
-      reason: `تسليم طلب ${billNo}`,
-      balance: APP.packaging[k]
-    });
+    APP.packagingLog.push({ date, item:k, type:'deduct', qty:Math.min(qty,before),
+      reason:`تسليم طلب ${billNo}`, balance:APP.packaging[k] });
   });
+  // يبل: عبايات + شيلات
+  const totalLabels = qty + (sheilaCount||0);
+  const before = APP.packaging.labels||0;
+  APP.packaging.labels = Math.max(0, before - totalLabels);
+  APP.packagingLog.push({ date, item:'labels', type:'deduct', qty:Math.min(totalLabels,before),
+    reason:`تسليم طلب ${billNo} (${qty} عباية + ${sheilaCount||0} شيلة)`,
+    balance: APP.packaging.labels });
 }
 
 // ===== SUPPLIERS =====
@@ -4672,36 +4826,49 @@ function openBankModal(mode) {
   const title = document.getElementById('bankModalTitle');
   const body  = document.getElementById('bankModalBody');
 
-  if (mode === 'deposit') {
-    title.textContent = '➕ إيداع في الحساب';
+  if (mode === 'deposit' || mode === 'withdraw') {
+    title.textContent = mode === 'deposit' ? '➕ إيداع في البنك' : '➖ سحب من البنك';
     body.innerHTML = `
-      <div class="form-group" style="margin-bottom:16px">
+      <div class="form-group">
         <label>المبلغ (ر.ع)</label>
-        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700" onkeydown="if(event.key==='Enter')doBankTx('deposit')">
+        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:22px;text-align:center;font-weight:700" onkeydown="if(event.key==='Enter')doBankTx('${mode}')">
       </div>
-      <div class="form-group" style="margin-bottom:20px">
+      <div class="form-group">
         <label>البيان / الملاحظة</label>
-        <input type="text" id="bankNote" placeholder="مثال: استلام دفعة زبونة" onkeydown="if(event.key==='Enter')doBankTx('deposit')">
+        <input type="text" id="bankNote" placeholder="${mode==='deposit'?'مثال: إيداع مبيعات':'مثال: سحب مصاريف'}" onkeydown="if(event.key==='Enter')doBankTx('${mode}')">
       </div>
-      <button class="btn btn-success" style="width:100%;justify-content:center" id="bankConfirmBtn">تأكيد الإيداع</button>`;
-    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx('deposit'));
+      <button class="btn ${mode==='deposit'?'btn-success':'btn-danger'}" style="width:100%;justify-content:center;margin-top:8px" id="bankConfirmBtn">
+        ${mode==='deposit'?'✅ تأكيد الإيداع':'✅ تأكيد السحب'}
+      </button>`;
+    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx(mode));
 
-  } else if (mode === 'withdraw') {
-    title.textContent = '➖ سحب من الحساب';
+  } else if (mode === 'addProfit') {
+    const totalProfit = APP.orders.filter(o=>o.status!=='ملغي').reduce((s,o)=>s+(o.profit||0),0);
+    const alreadyAdded = (APP.bank.transactions||[]).filter(t=>t.type==='profit').reduce((s,t)=>s+Math.abs(t.amount),0);
+    const pending = Math.max(0, totalProfit - alreadyAdded);
+    title.textContent = '💰 إضافة الأرباح للبنك';
     body.innerHTML = `
-      <div class="form-group" style="margin-bottom:16px">
-        <label>المبلغ (ر.ع)</label>
-        <input type="number" id="bankAmount" placeholder="0.000" step="0.001" min="0" style="font-size:18px;font-weight:700" onkeydown="if(event.key==='Enter')doBankTx('withdraw')">
+      <div style="background:var(--bg2);border-radius:10px;padding:16px;margin-bottom:16px;text-align:center">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">إجمالي الأرباح المحققة</div>
+        <div style="font-size:28px;font-weight:700;color:var(--success)">${totalProfit.toFixed(3)} ر.ع</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">تمت إضافة ${alreadyAdded.toFixed(3)} ر.ع مسبقاً</div>
       </div>
-      <div class="form-group" style="margin-bottom:20px">
-        <label>البيان / الملاحظة</label>
-        <input type="text" id="bankNote" placeholder="مثال: شراء قماش، دفع خياط" onkeydown="if(event.key==='Enter')doBankTx('withdraw')">
+      <div class="form-group">
+        <label>المبلغ المراد إضافته للبنك</label>
+        <input type="number" id="bankAmount" value="${pending.toFixed(3)}" step="0.001" min="0" style="font-size:20px;text-align:center;font-weight:700">
       </div>
-      <button class="btn btn-danger" style="width:100%;justify-content:center" id="bankConfirmBtn">تأكيد السحب</button>`;
-    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx('withdraw'));
+      <div class="form-group">
+        <label>ملاحظة</label>
+        <input type="text" id="bankNote" value="إضافة أرباح للبنك">
+      </div>
+      <button class="btn btn-success" style="width:100%;justify-content:center;margin-top:8px" id="bankConfirmBtn">✅ إضافة للرصيد</button>`;
+    document.getElementById('bankConfirmBtn').addEventListener('click', () => doBankTx('profit'));
+
   } else {
     title.textContent = '📋 سجل المعاملات البنكية';
     const txs = (APP.bank.transactions || []).slice().reverse();
+    const typeLabel = { deposit:'⬆ إيداع', withdraw:'⬇ سحب', profit:'💰 أرباح', reset:'🔄 تصفير' };
+    const typeColor = { deposit:'var(--success)', withdraw:'var(--danger)', profit:'#2B5F8A', reset:'var(--text-muted)' };
     body.innerHTML = txs.length ? `
       <div style="max-height:400px;overflow-y:auto">
         <table style="width:100%;font-size:13px;border-collapse:collapse">
@@ -4715,11 +4882,11 @@ function openBankModal(mode) {
           <tbody>${txs.map(t => `<tr style="border-bottom:1px solid var(--border)">
             <td style="padding:8px 12px;color:var(--text-muted)">${t.date}</td>
             <td style="padding:8px 12px">${t.note||'-'}</td>
-            <td style="padding:8px 12px"><span style="color:${t.type==='deposit'?'var(--success)':'var(--danger)'}">
-              ${t.type==='deposit'?'⬆ إيداع':'⬇ سحب'}</span></td>
-            <td style="padding:8px 12px;font-weight:700;color:${t.type==='deposit'?'var(--success)':'var(--danger)'}">
-              ${t.type==='deposit'?'+':'-'}${Math.abs(t.amount).toFixed(3)} ر.ع</td>
-            <td style="padding:8px 12px;font-weight:700;color:var(--burgundy)">${t.balance.toFixed(3)} ر.ع</td>
+            <td style="padding:8px 12px"><span style="color:${typeColor[t.type]||'var(--text)'}">
+              ${typeLabel[t.type]||t.type}</span></td>
+            <td style="padding:8px 12px;font-weight:700;color:${(t.amount||0)>=0?'var(--success)':'var(--danger)'}">
+              ${(t.amount||0)>=0?'+':''}${(t.amount||0).toFixed(3)} ر.ع</td>
+            <td style="padding:8px 12px;font-weight:700;color:var(--burgundy)">${(t.balance||0).toFixed(3)} ر.ع</td>
           </tr>`).join('')}</tbody>
         </table>
       </div>` : '<div class="empty-state"><div class="icon">🏦</div><p>لا توجد معاملات بعد</p></div>';
@@ -4728,52 +4895,52 @@ function openBankModal(mode) {
 }
 
 function doBankTx(type) {
-  const amount = parseFloat(document.getElementById('bankAmount').value);
-  const note   = document.getElementById('bankNote').value.trim();
+  const amount = parseFloat(document.getElementById('bankAmount')?.value);
+  const note   = document.getElementById('bankNote')?.value.trim();
   if (!amount || amount <= 0) { showToast('أدخلي مبلغاً صحيحاً', 'error'); return; }
-
   if (!APP.bank) APP.bank = { balance: 0, transactions: [] };
   if (type === 'withdraw' && amount > APP.bank.balance) {
     if (!confirm(`⚠️ المبلغ (${amount.toFixed(3)}) أكبر من الرصيد (${APP.bank.balance.toFixed(3)}). هل تريدين المتابعة؟`)) return;
   }
-
-  APP.bank.balance = type === 'deposit'
-    ? APP.bank.balance + amount
-    : APP.bank.balance - amount;
-
+  const signed = (type === 'withdraw') ? -amount : amount;
+  APP.bank.balance += signed;
   APP.bank.transactions.push({
-    type, amount,
-    note: note || (type === 'deposit' ? 'إيداع' : 'سحب'),
+    type, amount: signed,
+    note: note || (type==='deposit'?'إيداع': type==='withdraw'?'سحب': type==='profit'?'أرباح':''),
     date: new Date().toLocaleDateString('ar-OM'),
     balance: APP.bank.balance
   });
+  saveData(); closeModal('bankModal'); updateBankDisplay();
+  showToast(type==='withdraw'?`✅ تم سحب ${amount.toFixed(3)} ر.ع`:`✅ تم إضافة ${amount.toFixed(3)} ر.ع`, 'success');
+}
 
-  saveData();
-  closeModal('bankModal');
-  updateBankDisplay();
-  showToast(type === 'deposit' ? `✅ تم إيداع ${amount.toFixed(3)} ر.ع` : `✅ تم سحب ${amount.toFixed(3)} ر.ع`, 'success');
+function confirmResetBank() {
+  if (!confirm('تصفير رصيد البنك إلى صفر؟ سيُسجَّل كمعاملة في السجل.')) return;
+  if (!APP.bank) APP.bank = { balance:0, transactions:[] };
+  APP.bank.transactions.push({ type:'reset', amount:-APP.bank.balance, note:'تصفير الرصيد',
+    date: new Date().toLocaleDateString('ar-OM'), balance:0 });
+  APP.bank.balance = 0;
+  saveData(); updateBankDisplay();
+  showToast('تم تصفير الرصيد ✓','success');
 }
 
 function updateBankDisplay() {
   if (!APP.bank) return;
-  const balance = APP.bank.balance || 0;
+  const balance     = APP.bank.balance || 0;
   const totalProfit = APP.orders.filter(o=>o.status!=='ملغي').reduce((s,o)=>s+(o.profit||0),0);
-  const diff = balance - totalProfit;
-
-  const balEl = document.getElementById('bankBalanceDisplay');
+  const total       = balance + totalProfit;
+  const diff        = balance - totalProfit;
+  const balEl  = document.getElementById('bankBalanceDisplay');
   const profEl = document.getElementById('bankProfitRef');
+  const totEl  = document.getElementById('bankTotalDisplay');
   const diffEl = document.getElementById('bankDiffDisplay');
   if (!balEl) return;
-
   balEl.textContent = balance.toFixed(3);
-  balEl.style.color = balance >= 0 ? 'var(--burgundy)' : 'var(--danger)';
-  if (profEl) { profEl.textContent = totalProfit.toFixed(3) + ' ر.ع'; profEl.style.color = totalProfit>=0?'var(--success)':'var(--danger)'; }
-  if (diffEl) {
-    diffEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(3) + ' ر.ع';
-    diffEl.style.color = diff >= 0 ? 'var(--success)' : 'var(--danger)';
-  }
+  balEl.style.color = balance>=0?'var(--burgundy)':'var(--danger)';
+  if (profEl){ profEl.textContent=totalProfit.toFixed(3)+' ر.ع'; profEl.style.color=totalProfit>=0?'var(--success)':'var(--danger)'; }
+  if (totEl) { totEl.textContent=total.toFixed(3)+' ر.ع'; totEl.style.color=total>=0?'var(--burgundy)':'var(--danger)'; }
+  if (diffEl){ diffEl.textContent=(diff>=0?'+':'')+diff.toFixed(3)+' ر.ع'; diffEl.style.color=diff>=0?'var(--success)':'var(--danger)'; }
 }
-
 // ===== MODAL HELPERS =====
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
