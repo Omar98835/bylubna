@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;">
 <title>By Lubna</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -748,74 +747,14 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, onValue, push, set }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+import { getDatabase, ref, onValue, push, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as fbSignOut,
-  onAuthStateChanged,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  updateProfile,
-  GoogleAuthProvider,
-  signInWithPopup
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut as fbSignOut, onAuthStateChanged, updateProfile,
+  GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-window.__storeReady = false;
-window.__storeDB   = null;
-window.__storeAuth = null;
-window.__storeUser = null;
-window.__confirmResult = null;
-
-window.initStore = async function(config) {
-  if (!config || !config.apiKey) return;
-  try {
-    let app;
-    try { app = initializeApp(config, 'bylubna-store'); }
-    catch(e) {
-      try {
-        const { getApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-        app = getApp('bylubna-store');
-      } catch(e2) { console.warn('Firebase app init:', e2); }
-    }
-    window.__storeDB   = getDatabase(app);
-    window.__storeAuth = getAuth(app);
-
-    // Listen for auth state
-    onAuthStateChanged(window.__storeAuth, user => {
-      window.__storeUser = user;
-      updateAuthUI(user);
-      if (user) loadUserOrders(user.uid);
-    });
-
-    // Load store data from Firebase
-    const storeRef = ref(window.__storeDB, 'bylubna');
-    onValue(storeRef, snap => {
-      const data = snap.val();
-      if (data) {
-        window.__storeData = data;
-        const collection = data.collection || [];
-        renderFilters(data);
-        renderProducts(collection);
-      }
-      document.getElementById('loadingScreen').style.display = 'none';
-      window.__storeReady = true;
-    });
-
-  } catch(e) {
-    console.error('Store init error:', e);
-    document.getElementById('loadingScreen').style.display = 'none';
-  }
-};
-
-window.__fbPush = push;
-window.__fbSet  = set;
-window.__fbRef  = (path) => ref(window.__storeDB, path);
-
-// ===== Auto-init Firebase =====
-window.__FBCONFIG = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
   authDomain: "bylubna-f31a4.firebaseapp.com",
   databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -824,35 +763,57 @@ window.__FBCONFIG = {
   messagingSenderId: "331210998611",
   appId: "1:331210998611:web:e1c639a66036242fa917a6"
 };
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => window.initStore(window.__FBCONFIG));
-} else {
-  window.initStore(window.__FBCONFIG);
-}
 
-// Auth functions
+// Init Firebase
+let fbApp, fbDB, fbAuth;
+try { fbApp = initializeApp(FIREBASE_CONFIG, 'bylubna-store'); }
+catch(e) { fbApp = initializeApp(FIREBASE_CONFIG); }
+fbDB   = getDatabase(fbApp);
+fbAuth = getAuth(fbApp);
+
+window.__storeDB   = fbDB;
+window.__storeAuth = fbAuth;
+window.__fbPush    = push;
+window.__fbSet     = set;
+window.__fbRef     = (path) => ref(fbDB, path);
+
+// Auth state
+onAuthStateChanged(fbAuth, user => {
+  window.__storeUser = user;
+  updateAuthUI(user);
+  if (user) loadUserOrders(user.uid);
+});
+
+// Load store data
+const storeRef = ref(fbDB, 'bylubna');
+onValue(storeRef, snap => {
+  const data = snap.val();
+  if (data) {
+    window.__storeData = data;
+    renderFilters(data);
+    renderProducts(data.collection || []);
+  }
+  document.getElementById('loadingScreen').style.display = 'none';
+});
+
+// ===== Auth Functions =====
 window.doLogin = async function() {
   const email = document.getElementById('authEmail').value.trim();
   const pass  = document.getElementById('authPass').value;
-  const btn   = document.getElementById('loginBtn');
   const err   = document.getElementById('authError');
+  const btn   = document.getElementById('loginBtn');
   err.textContent = '';
-  if (!email || !pass) { err.textContent = isAr ? 'أدخلي البريد وكلمة المرور' : 'Enter email and password'; return; }
+  if (!email || !pass) { err.textContent = 'أدخلي البريد وكلمة المرور'; return; }
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    await signInWithEmailAndPassword(window.__storeAuth, email, pass);
+    await signInWithEmailAndPassword(fbAuth, email, pass);
     closeModal('authModal');
-    showToast(isAr ? '✅ مرحباً بك!' : '✅ Welcome back!', 'success');
+    showToast('✅ مرحباً بك!', 'success');
   } catch(e) {
-    const msgs = {
-      'auth/wrong-password': isAr ? 'كلمة المرور غير صحيحة' : 'Wrong password',
-      'auth/user-not-found': isAr ? 'البريد غير موجود' : 'Email not found',
-      'auth/invalid-credential': isAr ? 'بيانات الدخول غير صحيحة' : 'Invalid credentials',
-      'auth/too-many-requests': isAr ? 'محاولات كثيرة، حاول لاحقاً' : 'Too many attempts',
-    };
+    const msgs = { 'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'البريد غير موجود','auth/invalid-credential':'بيانات الدخول غير صحيحة','auth/too-many-requests':'محاولات كثيرة' };
     err.textContent = msgs[e.code] || e.message;
   }
-  btn.disabled = false; btn.textContent = isAr ? 'دخول' : 'Login';
+  btn.disabled = false; btn.textContent = 'دخول';
 };
 
 window.doRegister = async function() {
@@ -861,157 +822,115 @@ window.doRegister = async function() {
   const first = document.getElementById('regFirstName').value.trim();
   const last  = document.getElementById('regLastName').value.trim();
   const phone = document.getElementById('regPhone').value.trim();
-  const btn   = document.getElementById('registerBtn');
   const err   = document.getElementById('regError');
+  const btn   = document.getElementById('registerBtn');
   err.textContent = '';
-  if (!email || !pass || !first) { err.textContent = isAr ? 'يرجى تعبئة جميع الحقول' : 'Please fill all fields'; return; }
+  if (!email || !pass || !first) { err.textContent = 'يرجى تعبئة جميع الحقول'; return; }
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const cred = await createUserWithEmailAndPassword(window.__storeAuth, email, pass);
+    const cred = await createUserWithEmailAndPassword(fbAuth, email, pass);
     await updateProfile(cred.user, { displayName: `${first} ${last}`.trim() });
-    // Save extra profile to DB
-    if (window.__storeDB) {
-      await set(ref(window.__storeDB, `bylubna/customers/${cred.user.uid}`), {
-        name: `${first} ${last}`.trim(), email, phone,
-        createdAt: new Date().toISOString()
-      });
-    }
+    await set(ref(fbDB, `bylubna/customers/${cred.user.uid}`), {
+      name: `${first} ${last}`.trim(), email, phone, createdAt: new Date().toISOString()
+    });
     closeModal('authModal');
-    showToast(isAr ? `✅ أهلاً ${first}!` : `✅ Welcome ${first}!`, 'success');
+    showToast(`✅ أهلاً ${first}!`, 'success');
   } catch(e) {
-    const msgs = {
-      'auth/email-already-in-use': isAr ? 'البريد مستخدم بالفعل' : 'Email already in use',
-      'auth/weak-password': isAr ? 'كلمة المرور قصيرة جداً' : 'Password too short',
-    };
+    const msgs = { 'auth/email-already-in-use':'البريد مستخدم بالفعل','auth/weak-password':'كلمة المرور قصيرة' };
     err.textContent = msgs[e.code] || e.message;
   }
-  btn.disabled = false; btn.textContent = isAr ? 'إنشاء حساب' : 'Create Account';
+  btn.disabled = false; btn.textContent = 'إنشاء حساب';
+};
+
+window.doGoogleSignIn = async function() {
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    await signInWithPopup(fbAuth, provider);
+    closeModal('authModal');
+    showToast('✅ تم الدخول بـ Google!', 'success');
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user')
+      showToast('خطأ في تسجيل الدخول بـ Google', 'error');
+  }
 };
 
 window.doPhoneAuth = async function() {
   const otpSec = document.getElementById('otpSection');
   const err    = document.getElementById('phoneError');
   err.textContent = '';
-
   if (otpSec.style.display === 'none') {
-    // Send OTP
     const phone = document.getElementById('phoneInput').value.trim();
-    if (!phone) { err.textContent = isAr ? 'أدخلي رقم الهاتف' : 'Enter phone number'; return; }
+    if (!phone) { err.textContent = 'أدخلي رقم الهاتف'; return; }
     try {
-      if (!window.__recaptcha) {
-        window.__recaptcha = new RecaptchaVerifier(window.__storeAuth, 'recaptchaContainer', { size: 'invisible' });
-      }
-      window.__confirmResult = await signInWithPhoneNumber(window.__storeAuth, phone, window.__recaptcha);
+      if (!window.__recaptcha)
+        window.__recaptcha = new RecaptchaVerifier(fbAuth, 'recaptchaContainer', { size: 'invisible' });
+      window.__confirmResult = await signInWithPhoneNumber(fbAuth, phone, window.__recaptcha);
       otpSec.style.display = '';
-      document.getElementById('phoneBtn').textContent = isAr ? 'تأكيد الرمز' : 'Verify Code';
-      showToast(isAr ? '📱 تم إرسال الرمز' : '📱 Code sent', 'success');
-    } catch(e) {
-      err.textContent = e.message;
-    }
+      document.getElementById('phoneBtn').textContent = 'تأكيد الرمز';
+      showToast('📱 تم إرسال الرمز', 'success');
+    } catch(e) { err.textContent = e.message; }
   } else {
-    // Verify OTP
     const code = document.getElementById('otpInput').value.trim();
-    if (!code) { err.textContent = isAr ? 'أدخلي الرمز' : 'Enter code'; return; }
+    if (!code) { err.textContent = 'أدخلي الرمز'; return; }
     try {
       await window.__confirmResult.confirm(code);
       closeModal('authModal');
-      showToast(isAr ? '✅ تم التحقق!' : '✅ Verified!', 'success');
-    } catch(e) {
-      err.textContent = isAr ? 'رمز خاطئ' : 'Invalid code';
-    }
-  }
-};
-
-window.doGoogleSignIn = async function() {
-  if (!window.__storeAuth) { showToast('Firebase غير مهيأ', 'error'); return; }
-  try {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    const result = await signInWithPopup(window.__storeAuth, provider);
-    const user = result.user;
-    // Save profile to DB if new user
-    if (window.__storeDB) {
-      const { ref: dbRef, get } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-      await set(ref(window.__storeDB, `bylubna/customers/${user.uid}`), {
-        name: user.displayName || '',
-        email: user.email || '',
-        phone: user.phoneNumber || '',
-        photoURL: user.photoURL || '',
-        createdAt: new Date().toISOString()
-      });
-    }
-    closeModal('authModal');
-    showToast(`✅ أهلاً ${user.displayName?.split(' ')[0] || ''}!`, 'success');
-  } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user') {
-      showToast(e.code === 'auth/popup-blocked'
-        ? 'السماح بالنوافذ المنبثقة في المتصفح'
-        : 'خطأ في تسجيل الدخول بجوجل', 'error');
-    }
+      showToast('✅ تم التحقق!', 'success');
+    } catch(e) { err.textContent = 'رمز خاطئ'; }
   }
 };
 
 window.signOut = async function() {
-  if (!window.__storeAuth) return;
-  await fbSignOut(window.__storeAuth);
+  await fbSignOut(fbAuth);
   showPage('store');
-  showToast(isAr ? 'تم تسجيل الخروج' : 'Signed out', 'success');
+  showToast('تم تسجيل الخروج', 'success');
 };
 
 function updateAuthUI(user) {
   const authBtn   = document.getElementById('authBtn');
   const authLabel = document.getElementById('authLabel');
   if (user) {
-    const name = user.displayName || (isAr ? 'حسابي' : 'My Account');
+    const name = user.displayName || 'حسابي';
     authLabel.textContent = name.split(' ')[0];
     authBtn.onclick = () => showPage('account');
     document.getElementById('accountName').textContent  = user.displayName || user.email;
     document.getElementById('accountEmail').textContent = user.email || user.phoneNumber || '';
     document.getElementById('accountAvatar').textContent = (user.displayName||'?')[0].toUpperCase();
   } else {
-    authLabel.textContent = isAr ? 'دخول' : 'Login';
+    authLabel.textContent = 'دخول';
     authBtn.onclick = () => showAuthModal();
   }
 }
 
 function loadUserOrders(uid) {
-  if (!window.__storeDB) return;
-  const ordersEl = document.getElementById('ordersList');
-  const ordersRef = ref(window.__storeDB, 'bylubna/orders');
+  const ordersEl  = document.getElementById('ordersList');
+  const ordersRef = ref(fbDB, 'bylubna/orders');
   onValue(ordersRef, snap => {
     const allOrders = snap.val() || {};
     const userOrders = Object.values(allOrders)
-      .filter(o => o.customerId === uid || o.phone === (window.__storeUser?.phoneNumber))
+      .filter(o => o.customerId === uid)
       .sort((a,b) => (b.createdAt||'') > (a.createdAt||'') ? 1 : -1);
     if (!userOrders.length) {
-      ordersEl.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:48px;margin-bottom:12px">📦</div><p>${isAr?'لا توجد طلبات بعد':'No orders yet'}</p></div>`;
+      ordersEl.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:48px">📦</div><p>لا توجد طلبات بعد</p></div>`;
       return;
     }
-    const statusMap = {
-      'جديد':'status-new','قيد التفصيل':'status-tailor',
-      'جاهز للتسليم':'status-ready','تم التسليم':'status-done','ملغي':'status-cancelled'
-    };
+    const statusMap = {'جديد':'status-new','قيد التفصيل':'status-tailor','جاهز للتسليم':'status-ready','تم التسليم':'status-done','ملغي':'status-cancelled'};
     ordersEl.innerHTML = userOrders.map(o => `
       <div class="order-card">
         <div class="order-card-header">
           <div class="order-card-bill">📋 ${o.bill||''}</div>
           <span class="order-status ${statusMap[o.status]||'status-new'}">${o.status||'جديد'}</span>
         </div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:8px">
-          ${isAr?'تاريخ الطلب':'Order Date'}: <strong>${o.orderDate||'—'}</strong>
-          ${o.deliverDate?` | ${isAr?'التسليم':'Delivery'}: <strong>${o.deliverDate}</strong>`:''}
-        </div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:8px">تاريخ الطلب: <strong>${o.orderDate||'—'}</strong></div>
         ${(o.items||[]).map(it=>`
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
             <div style="font-size:24px">🧕</div>
-            <div style="flex:1">
-              <div style="font-weight:600;font-size:13px">${it.type||'عباية'} ${it.color?'— '+it.color:''}</div>
-              <div style="font-size:12px;color:var(--text2)">${isAr?'الكمية':'Qty'}: ${it.qty||1}</div>
-            </div>
+            <div style="flex:1"><div style="font-weight:600;font-size:13px">${it.type||'عباية'} ${it.color?'— '+it.color:''}</div></div>
             <div style="font-weight:700;color:var(--burgundy)">${((it.price||0)*(it.qty||1)).toFixed(3)} ر.ع</div>
           </div>`).join('')}
         <div style="text-align:left;font-size:15px;font-weight:700;color:var(--burgundy);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-          ${isAr?'الإجمالي':'Total'}: ${(o.amount*(o.qty||1)).toFixed(3)} ر.ع
+          الإجمالي: ${((o.amount||0)*(o.qty||1)).toFixed(3)} ر.ع
         </div>
       </div>`).join('');
   });
