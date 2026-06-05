@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
 <title>By Lubna</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -490,7 +491,7 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 <body>
 
 <!-- Loading -->
-<div class="loading-screen" id="loadingScreen">
+<div class="loading-screen" id="loadingScreen" onload="setTimeout(()=>this.style.display='none',3000)">
   <div class="loading-logo">BY LUBNA</div>
   <div class="loading-dots">
     <div class="loading-dot"></div>
@@ -745,15 +746,11 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 </div>
 
 <!-- Firebase -->
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, onValue, push, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-import {
-  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signOut as fbSignOut, onAuthStateChanged, updateProfile,
-  GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-
+<!-- Firebase Compat SDK (no eval) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
   authDomain: "bylubna-f31a4.firebaseapp.com",
@@ -764,36 +761,33 @@ const FIREBASE_CONFIG = {
   appId: "1:331210998611:web:e1c639a66036242fa917a6"
 };
 
-// Init Firebase
-let fbApp, fbDB, fbAuth;
-try { fbApp = initializeApp(FIREBASE_CONFIG, 'bylubna-store'); }
-catch(e) { fbApp = initializeApp(FIREBASE_CONFIG); }
-fbDB   = getDatabase(fbApp);
-fbAuth = getAuth(fbApp);
+firebase.initializeApp(FIREBASE_CONFIG);
+const fbDB   = firebase.database();
+const fbAuth = firebase.auth();
 
 window.__storeDB   = fbDB;
 window.__storeAuth = fbAuth;
-window.__fbPush    = push;
-window.__fbSet     = set;
-window.__fbRef     = (path) => ref(fbDB, path);
+window.__fbPush    = (ref, data) => ref.push(data);
+window.__fbSet     = (ref, data) => ref.set(data);
+window.__fbRef     = (path) => fbDB.ref(path);
 
 // Auth state
-onAuthStateChanged(fbAuth, user => {
+fbAuth.onAuthStateChanged(user => {
   window.__storeUser = user;
   updateAuthUI(user);
   if (user) loadUserOrders(user.uid);
 });
 
 // Load store data
-const storeRef = ref(fbDB, 'bylubna');
-onValue(storeRef, snap => {
+fbDB.ref('bylubna').on('value', snap => {
   const data = snap.val();
   if (data) {
     window.__storeData = data;
     renderFilters(data);
     renderProducts(data.collection || []);
   }
-  document.getElementById('loadingScreen').style.display = 'none';
+  const ls = document.getElementById('loadingScreen');
+  if (ls) ls.style.display = 'none';
 });
 
 // ===== Auth Functions =====
@@ -806,11 +800,11 @@ window.doLogin = async function() {
   if (!email || !pass) { err.textContent = 'أدخلي البريد وكلمة المرور'; return; }
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    await signInWithEmailAndPassword(fbAuth, email, pass);
+    await fbAuth.signInWithEmailAndPassword(email, pass);
     closeModal('authModal');
     showToast('✅ مرحباً بك!', 'success');
   } catch(e) {
-    const msgs = { 'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'البريد غير موجود','auth/invalid-credential':'بيانات الدخول غير صحيحة','auth/too-many-requests':'محاولات كثيرة' };
+    const msgs = {'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'البريد غير موجود','auth/invalid-credential':'بيانات الدخول غير صحيحة','auth/too-many-requests':'محاولات كثيرة'};
     err.textContent = msgs[e.code] || e.message;
   }
   btn.disabled = false; btn.textContent = 'دخول';
@@ -828,15 +822,15 @@ window.doRegister = async function() {
   if (!email || !pass || !first) { err.textContent = 'يرجى تعبئة جميع الحقول'; return; }
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const cred = await createUserWithEmailAndPassword(fbAuth, email, pass);
-    await updateProfile(cred.user, { displayName: `${first} ${last}`.trim() });
-    await set(ref(fbDB, `bylubna/customers/${cred.user.uid}`), {
-      name: `${first} ${last}`.trim(), email, phone, createdAt: new Date().toISOString()
+    const cred = await fbAuth.createUserWithEmailAndPassword(email, pass);
+    await cred.user.updateProfile({ displayName: (first+' '+last).trim() });
+    await fbDB.ref('bylubna/customers/'+cred.user.uid).set({
+      name: (first+' '+last).trim(), email, phone, createdAt: new Date().toISOString()
     });
     closeModal('authModal');
-    showToast(`✅ أهلاً ${first}!`, 'success');
+    showToast('✅ أهلاً '+first+'!', 'success');
   } catch(e) {
-    const msgs = { 'auth/email-already-in-use':'البريد مستخدم بالفعل','auth/weak-password':'كلمة المرور قصيرة' };
+    const msgs = {'auth/email-already-in-use':'البريد مستخدم بالفعل','auth/weak-password':'كلمة المرور قصيرة'};
     err.textContent = msgs[e.code] || e.message;
   }
   btn.disabled = false; btn.textContent = 'إنشاء حساب';
@@ -844,9 +838,9 @@ window.doRegister = async function() {
 
 window.doGoogleSignIn = async function() {
   try {
-    const provider = new GoogleAuthProvider();
+    const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    await signInWithPopup(fbAuth, provider);
+    await fbAuth.signInWithPopup(provider);
     closeModal('authModal');
     showToast('✅ تم الدخول بـ Google!', 'success');
   } catch(e) {
@@ -864,8 +858,8 @@ window.doPhoneAuth = async function() {
     if (!phone) { err.textContent = 'أدخلي رقم الهاتف'; return; }
     try {
       if (!window.__recaptcha)
-        window.__recaptcha = new RecaptchaVerifier(fbAuth, 'recaptchaContainer', { size: 'invisible' });
-      window.__confirmResult = await signInWithPhoneNumber(fbAuth, phone, window.__recaptcha);
+        window.__recaptcha = new firebase.auth.RecaptchaVerifier('recaptchaContainer', {size:'invisible'});
+      window.__confirmResult = await fbAuth.signInWithPhoneNumber(phone, window.__recaptcha);
       otpSec.style.display = '';
       document.getElementById('phoneBtn').textContent = 'تأكيد الرمز';
       showToast('📱 تم إرسال الرمز', 'success');
@@ -882,7 +876,7 @@ window.doPhoneAuth = async function() {
 };
 
 window.signOut = async function() {
-  await fbSignOut(fbAuth);
+  await fbAuth.signOut();
   showPage('store');
   showToast('تم تسجيل الخروج', 'success');
 };
@@ -904,19 +898,17 @@ function updateAuthUI(user) {
 }
 
 function loadUserOrders(uid) {
-  const ordersEl  = document.getElementById('ordersList');
-  const ordersRef = ref(fbDB, 'bylubna/orders');
-  onValue(ordersRef, snap => {
-    const allOrders = snap.val() || {};
-    const userOrders = Object.values(allOrders)
-      .filter(o => o.customerId === uid)
+  const ordersEl = document.getElementById('ordersList');
+  fbDB.ref('bylubna/orders').on('value', snap => {
+    const all = snap.val() || {};
+    const mine = Object.values(all).filter(o => o.customerId === uid)
       .sort((a,b) => (b.createdAt||'') > (a.createdAt||'') ? 1 : -1);
-    if (!userOrders.length) {
-      ordersEl.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:48px">📦</div><p>لا توجد طلبات بعد</p></div>`;
+    if (!mine.length) {
+      ordersEl.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:48px">📦</div><p>لا توجد طلبات بعد</p></div>';
       return;
     }
     const statusMap = {'جديد':'status-new','قيد التفصيل':'status-tailor','جاهز للتسليم':'status-ready','تم التسليم':'status-done','ملغي':'status-cancelled'};
-    ordersEl.innerHTML = userOrders.map(o => `
+    ordersEl.innerHTML = mine.map(o => `
       <div class="order-card">
         <div class="order-card-header">
           <div class="order-card-bill">📋 ${o.bill||''}</div>
@@ -929,12 +921,50 @@ function loadUserOrders(uid) {
             <div style="flex:1"><div style="font-weight:600;font-size:13px">${it.type||'عباية'} ${it.color?'— '+it.color:''}</div></div>
             <div style="font-weight:700;color:var(--burgundy)">${((it.price||0)*(it.qty||1)).toFixed(3)} ر.ع</div>
           </div>`).join('')}
-        <div style="text-align:left;font-size:15px;font-weight:700;color:var(--burgundy);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="text-align:left;font-weight:700;color:var(--burgundy);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
           الإجمالي: ${((o.amount||0)*(o.qty||1)).toFixed(3)} ر.ع
         </div>
       </div>`).join('');
   });
 }
+
+// Place order
+window.placeOrder = async function() {
+  const name    = document.getElementById('coName').value.trim();
+  const phone   = document.getElementById('coPhone').value.trim();
+  const address = document.getElementById('coAddress').value.trim();
+  const notes   = document.getElementById('coNotes').value.trim();
+  if (!name || !phone) { showToast('⚠️ أدخلي الاسم والهاتف', 'error'); goCheckoutStep(1); return; }
+  const btn = document.getElementById('placeOrderBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+  const total    = cart.reduce((s,i) => s+(i.price||0)*(i.qty||1), 0);
+  const totalQty = cart.reduce((s,i) => s+(i.qty||1), 0);
+  const bill     = 'STO-' + Date.now().toString().slice(-6);
+  const today    = new Date().toISOString().split('T')[0];
+  const items    = cart.map(i => ({type:i.name, color:i.selectedColor||'', size:i.selectedSize||'', qty:i.qty||1, price:i.price||0}));
+  const orderData = {
+    id:'ord-'+Date.now(), bill, name, phone, address, notes,
+    orderDate:today, deliverDate:'',
+    color:items[0]?.color||'', type:items.map(i=>i.type).join(' + '),
+    qty:totalQty, amount:totalQty?total/totalQty:0, originalAmount:totalQty?total/totalQty:0,
+    items, tailor:0, fabric:0, sheila:0, extra:0, profit:0,
+    deposit:0, remaining:total, discountCode:'', discountPct:0, discountAmt:0,
+    status:'جديد', remark:'طلب متجر'+(notes?': '+notes:''),
+    source:'store', customerId:window.__storeUser?.uid||'',
+    createdAt:new Date().toISOString(),
+    month:new Date().toLocaleString('en-US',{month:'long'}),
+    year:new Date().getFullYear()
+  };
+  try {
+    await fbDB.ref('bylubna/orders').push(orderData);
+    document.getElementById('successBill').textContent = 'رقم الطلب: ' + bill;
+    goCheckoutStep(3);
+    showToast('🎉 تم الطلب!', 'success');
+  } catch(e) {
+    showToast('❌ حدث خطأ، حاول مرة أخرى', 'error');
+  }
+  btn.disabled = false; btn.textContent = 'تأكيد الطلب';
+};
 </script>
 
 <script>
