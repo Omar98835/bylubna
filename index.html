@@ -5361,6 +5361,22 @@ function deleteCollection(idx) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Firebase Config مدمج تلقائياً
+  const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
+  authDomain: "bylubna-f31a4.firebaseapp.com",
+  databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bylubna-f31a4",
+  storageBucket: "bylubna-f31a4.firebasestorage.app",
+  messagingSenderId: "331210998611",
+  appId: "1:331210998611:web:e1c639a66036242fa917a6"
+};
+  if (!APP.settings.firebaseConfig || !APP.settings.firebaseConfig.apiKey) {
+    APP.settings.firebaseConfig = FIREBASE_CONFIG;
+    saveData();
+  }
+  if (window.initFirebase) window.initFirebase(FIREBASE_CONFIG);
+
   refreshTypeList();
   refreshColorList();
   document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ar-OM', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
