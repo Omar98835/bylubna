@@ -66,15 +66,20 @@
               APP.abaColors     = data.abaColors     || APP.abaColors;
               APP.settings      = { ...APP.settings, ...(data.settings || {}) };
               APP.invoiceCounter = data.invoiceCounter || APP.invoiceCounter;
-              if (data.bank)        APP.bank = data.bank;
-              if (data.discounts)   APP.discounts   = data.discounts;
-              if (data.collection)  APP.collection  = data.collection;
-              if (data.campaignLog) APP.campaignLog = data.campaignLog;
+              if (data.bank)         APP.bank         = data.bank;
+              if (data.discounts)    APP.discounts    = data.discounts;
+              if (data.collection)   APP.collection   = data.collection;
+              if (data.campaignLog)  APP.campaignLog  = data.campaignLog;
+              if (data.packaging)    APP.packaging    = data.packaging;
+              if (data.packagingLog) APP.packagingLog = data.packagingLog;
+              if (data.suppliers)    APP.suppliers    = data.suppliers;
               if (JSON.stringify({ orders: APP.orders, fabric: APP.fabric }) !== prev) {
                 renderDashboard();
                 if (document.getElementById('page-orders').classList.contains('active'))
                   renderOrdersTable();
               }
+              if (document.getElementById('page-fabric')?.classList.contains('active'))
+                renderPackagingUI();
             }
           });
           showToast('🔥 متصل بـ Firebase ✓', 'success');
