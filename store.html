@@ -811,6 +811,22 @@ window.__fbPush = push;
 window.__fbSet  = set;
 window.__fbRef  = (path) => ref(window.__storeDB, path);
 
+// ===== Auto-init Firebase =====
+window.__FBCONFIG = {
+  apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
+  authDomain: "bylubna-f31a4.firebaseapp.com",
+  databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bylubna-f31a4",
+  storageBucket: "bylubna-f31a4.firebasestorage.app",
+  messagingSenderId: "331210998611",
+  appId: "1:331210998611:web:e1c639a66036242fa917a6"
+};
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => window.initStore(window.__FBCONFIG));
+} else {
+  window.initStore(window.__FBCONFIG);
+}
+
 // Auth functions
 window.doLogin = async function() {
   const email = document.getElementById('authEmail').value.trim();
@@ -1449,29 +1465,7 @@ function showToast(msg, type='') {
 window.showToast = showToast;
 
 // ===== INIT =====
-// Load Firebase config from localStorage (same as admin panel)
-window.addEventListener('DOMContentLoaded', () => {
-  try {
-    const saved = localStorage.getItem('bylubna_app');
-    if (saved) {
-      const data = JSON.parse(saved);
-      const config = data?.settings?.firebaseConfig;
-      if (config && config.apiKey) {
-        window.initStore(config);
-      } else {
-        // No Firebase config — show placeholder products
-        document.getElementById('loadingScreen').style.display = 'none';
-        renderDemoProducts();
-      }
-    } else {
-      document.getElementById('loadingScreen').style.display = 'none';
-      renderDemoProducts();
-    }
-  } catch(e) {
-    document.getElementById('loadingScreen').style.display = 'none';
-    renderDemoProducts();
-  }
-});
+
 
 function renderDemoProducts() {
   renderFilters({ collection:[] });
