@@ -781,7 +781,10 @@ window.__fsDB      = fsDB;
 onAuthStateChanged(fbAuth, user => {
   window.__storeUser = user;
   updateAuthUI(user);
-  if (user) loadUserOrders(user.uid);
+  if (user) {
+    loadUserOrders(user.uid);
+    loadCartFromCloud();
+  }
 });
 
 // Load collection via REST API (no eval needed)
@@ -863,6 +866,7 @@ window.doGoogleSignIn = async function() {
     await signInWithPopup(fbAuth, provider);
     closeModal('authModal');
     showToast('✅ تم الدخول بـ Google!', 'success');
+    loadCartFromCloud();
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user')
       showToast('خطأ في تسجيل الدخول بـ Google', 'error');
@@ -1223,18 +1227,21 @@ function addCartItem(product) {
   updateCartBadge();
   renderCart();
   showToast(`✅ ${isAr?'أُضيفت للسلة':'Added to cart'}`, 'success');
+  saveCartToCloud();
 }
 
 function removeCartItem(idx) {
   cart.splice(idx, 1);
   updateCartBadge();
   renderCart();
+  saveCartToCloud();
 }
 
 function changeQty(idx, delta) {
   cart[idx].qty = Math.max(1, (cart[idx].qty||1) + delta);
   updateCartBadge();
   renderCart();
+  saveCartToCloud();
 }
 
 function updateCartBadge() {
@@ -1286,7 +1293,37 @@ function renderCart() {
   document.getElementById('totalLabel').textContent  = t('totalLabel');
 }
 
-function clearCart() { cart = []; updateCartBadge(); renderCart(); }
+function clearCart() { cart = []; updateCartBadge(); renderCart(); saveCartToCloud(); }
+
+// ===== CLOUD CART =====
+async function saveCartToCloud() {
+  const user = window.__storeUser;
+  if (!user || !window.__fsDB) return;
+  try {
+    const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    await setDoc(doc(window.__fsDB, 'carts', user.uid), {
+      items: cart, updatedAt: new Date().toISOString()
+    });
+  } catch(e) { console.error('Cart save error:', e); }
+}
+
+async function loadCartFromCloud() {
+  const user = window.__storeUser;
+  if (!user || !window.__fsDB) return;
+  try {
+    const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const snap = await getDoc(doc(window.__fsDB, 'carts', user.uid));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.items && data.items.length) {
+        cart = data.items;
+        updateCartBadge();
+        renderCart();
+        showToast('✅ تم استرجاع سلتك', 'success');
+      }
+    }
+  } catch(e) { console.error('Cart load error:', e); }
+}
 
 function openCart()  {
   document.getElementById('cartOverlay').classList.add('open');
