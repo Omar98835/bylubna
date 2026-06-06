@@ -1,4 +1,4 @@
-\<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -659,7 +659,7 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
     <div id="authPhoneForm" style="display:none">
       <div class="form-group">
         <label id="phoneLabel">رقم الهاتف</label>
-        <input type="tel" id="phoneInput" placeholder="+96891234567" dir="ltr">
+        <input type="tel" id="phoneInput" placeholder="98835935 أو +96898835935" dir="ltr">
       </div>
       <div id="otpSection" style="display:none">
         <div class="form-group">
@@ -906,8 +906,13 @@ window.doPhoneAuth = async function() {
   const err    = document.getElementById('phoneError');
   err.textContent = '';
   if (otpSec.style.display === 'none') {
-    const phone = document.getElementById('phoneInput').value.trim();
+    let phone = document.getElementById('phoneInput').value.trim();
     if (!phone) { err.textContent = 'أدخلي رقم الهاتف'; return; }
+    // أضف رمز عُمان تلقائياً إذا ما فيه رمز دولة
+    if (!phone.startsWith('+')) {
+      phone = '+968' + phone.replace(/^0/, '');
+      document.getElementById('phoneInput').value = phone;
+    }
     try {
       if (!window.__recaptcha)
         window.__recaptcha = new RecaptchaVerifier(fbAuth, 'recaptchaContainer', {size:'invisible'});
