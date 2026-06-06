@@ -786,14 +786,6 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, collection, addDoc, onSnapshot, query, where, getDocs, setDoc }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getDatabase, ref, onValue as rtOnValue, push }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signOut as fbSignOut, onAuthStateChanged, updateProfile,
-  RecaptchaVerifier, signInWithPhoneNumber, signInWithCredential, GoogleAuthProvider }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
@@ -805,28 +797,90 @@ const FIREBASE_CONFIG = {
   appId: "1:331210998611:web:e1c639a66036242fa917a6"
 };
 
-let fbApp, fsDB, fbAuth;
+let fbApp;
 try { fbApp = initializeApp(FIREBASE_CONFIG, 'bylubna-store'); }
 catch(e) { fbApp = initializeApp(FIREBASE_CONFIG); }
-fsDB   = getFirestore(fbApp);
-fbAuth = getAuth(fbApp);
-const rtDB = getDatabase(fbApp);
 
-window.__storeAuth = fbAuth;
-window.__fsDB      = fsDB;
-window.__fbRef     = (path) => ref(rtDB, path);
-window.__fbPush    = (r, data) => push(r, data);
+// روابط مؤقتة حتى تحمل المكتبات
+let fbAuth = null, fsDB = null, rtDB = null;
+window.__storeAuth = null;
+window.__fsDB = null;
+window.__fbRef = null;
+window.__fbPush = null;
+window.__firebaseReady = false;
+window.__firebaseCallbacks = [];
 
-// Auth state
-onAuthStateChanged(fbAuth, user => {
-  window.__storeUser = user;
-  updateAuthUI(user);
-  if (user) {
-    closeModal('authModal');
-    loadUserOrders(user.uid);
-    setTimeout(() => loadCartFromCloud(), 500);
-  }
-});
+// حمّل Firebase Auth في الخلفية بعد ما تفتح الصفحة
+async function loadFirebase() {
+  const [
+    { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+      signOut: fbSignOut, updateProfile, RecaptchaVerifier, signInWithPhoneNumber,
+      signInWithCredential, GoogleAuthProvider },
+    { getFirestore, doc, collection, addDoc, onSnapshot, query, where, getDocs, setDoc },
+    { getDatabase, ref, onValue: rtOnValue, push }
+  ] = await Promise.all([
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'),
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'),
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js')
+  ]);
+
+  fbAuth = getAuth(fbApp);
+  fsDB   = getFirestore(fbApp);
+  rtDB   = getDatabase(fbApp);
+
+  window.__storeAuth = fbAuth;
+  window.__fsDB      = fsDB;
+  window.__fbRef     = (path) => ref(rtDB, path);
+  window.__fbPush    = (r, data) => push(r, data);
+  window.__firebaseReady = true;
+
+  // نقل الدوال للـ window
+  window.__fbCreateUser   = (e,p) => createUserWithEmailAndPassword(fbAuth,e,p);
+  window.__fbSignIn       = (e,p) => signInWithEmailAndPassword(fbAuth,e,p);
+  window.__fbSignOut      = () => fbSignOut(fbAuth);
+  window.__fbUpdateProfile= (u,d) => updateProfile(u,d);
+  window.__fbSignInCred   = (c) => signInWithCredential(fbAuth,c);
+  window.__fbGoogleCred   = (t) => GoogleAuthProvider.credential(null,t);
+  window.__fbDoc          = (p) => doc(fsDB,p);
+  window.__fbCollection   = (p) => collection(fsDB,p);
+  window.__fbAddDoc       = (c,d) => addDoc(c,d);
+  window.__fbSetDoc       = (r,d,o) => setDoc(r,d,o);
+  window.__fbQuery        = (c,...q) => query(c,...q);
+  window.__fbWhere        = (f,o,v) => where(f,o,v);
+  window.__fbGetDocs      = (q) => getDocs(q);
+  window.__fbOnSnapshot   = (q,cb) => onSnapshot(q,cb);
+  window.__fbRtOnValue    = (r,cb) => rtOnValue(r,cb);
+  window.__fbRecaptcha    = (el,params) => new RecaptchaVerifier(fbAuth,el,params);
+  window.__fbPhoneSignIn  = (phone,recaptcha) => signInWithPhoneNumber(fbAuth,phone,recaptcha);
+
+  // Auth state
+  onAuthStateChanged(fbAuth, user => {
+    window.__storeUser = user;
+    updateAuthUI(user);
+    if (user) {
+      closeModal('authModal');
+      loadUserOrders(user.uid);
+      setTimeout(() => loadCartFromCloud(), 500);
+    }
+  });
+
+  // شغّل أي callbacks كانت تستنى
+  window.__firebaseCallbacks.forEach(cb => cb());
+  window.__firebaseCallbacks = [];
+}
+
+// helper: نفّذ بعد ما Firebase يصبح جاهز
+window.__onFirebaseReady = function(cb) {
+  if (window.__firebaseReady) cb();
+  else window.__firebaseCallbacks.push(cb);
+};
+
+// ابدأ التحميل بعد ما تفتح الصفحة
+if (document.readyState === 'complete') {
+  loadFirebase();
+} else {
+  window.addEventListener('load', loadFirebase);
+}
 
 // Load collection via REST API
 const DB_URL = 'https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app/bylubna/collection.json';
@@ -875,7 +929,7 @@ window.doLogin = async function() {
   if (!email || !pass) { err.textContent = 'أدخلي البريد وكلمة المرور'; return; }
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    await signInWithEmailAndPassword(fbAuth, email, pass);
+    await window.__fbSignIn(email, pass);
     closeModal('authModal');
     showToast('✅ مرحباً بك!', 'success');
   } catch(e) {
@@ -897,9 +951,9 @@ window.doRegister = async function() {
   if (!email || !pass || !first) { err.textContent = 'يرجى تعبئة جميع الحقول'; return; }
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const cred = await createUserWithEmailAndPassword(fbAuth, email, pass);
-    await updateProfile(cred.user, { displayName: (first+' '+last).trim() });
-    await setDoc(doc(fsDB, 'customers', cred.user.uid), {
+    const cred = await window.__fbCreateUser(email, pass);
+    await window.__fbUpdateProfile(cred.user, { displayName: (first+' '+last).trim() });
+    await window.__fbSetDoc(window.__fbDoc('customers/'+cred.user.uid), {
       name:(first+' '+last).trim(), email, phone, createdAt:new Date().toISOString()
     });
     closeModal('authModal');
@@ -929,8 +983,8 @@ function initGoogleIdentity() {
         return;
       }
       try {
-        const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
-        const result = await signInWithCredential(fbAuth, credential);
+        const credential = window.__fbGoogleCred(tokenResponse.access_token);
+        const result = await window.__fbSignInCred(credential);
         if (result && result.user) {
           closeModal('authModal');
           showToast('✅ تم الدخول بـ Google!', 'success');
@@ -1002,7 +1056,7 @@ window.doPhoneAuth = async function() {
 };
 
 window.signOut = async function() {
-  await fbSignOut(fbAuth);
+  await window.__fbSignOut();
   showPage('store');
   showToast('تم تسجيل الخروج', 'success');
 };
@@ -1025,8 +1079,8 @@ function updateAuthUI(user) {
 async function loadUserOrders(uid) {
   const ordersEl = document.getElementById('ordersList');
   try {
-    const q = query(collection(fsDB, 'store_orders'), where('customerId','==',uid));
-    onSnapshot(q, snap => {
+    const q = window.__fbQuery(window.__fbCollection('store_orders'), window.__fbWhere('customerId','==',uid));
+    window.__fbOnSnapshot(q, snap => {
       const orders = snap.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||'')>(a.createdAt||'')?1:-1);
       if (!orders.length) {
         ordersEl.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:48px">📦</div><p>لا توجد طلبات بعد</p></div>';
@@ -1107,7 +1161,7 @@ window.placeOrder = async function() {
   };
   try {
     // حفظ في Firestore
-    await addDoc(collection(fsDB, 'store_orders'), orderData);
+    await window.__fbAddDoc(window.__fbCollection('store_orders'), orderData);
     // حفظ في Realtime Database ليظهر في لوحة الإدارة
     const rtRef = window.__fbRef ? window.__fbRef('bylubna/orders') : null;
     if (rtRef) await window.__fbPush(rtRef, orderData);
