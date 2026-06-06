@@ -1230,13 +1230,13 @@ function openProduct(p) {
   selectedColor = colors[0] || '';
   selectedSize  = sizes[2]?.label || sizes[0]?.label || 'M';
 
-  const colorOpts = (currentProduct.colors||[]).map(c => `
+  const colorOpts = colors.map(c => `
     <div class="color-option ${c===selectedColor?'selected':''}" style="background:${getColorHex(c)}"
       title="${c}" onclick="selectColor('${c}',this)"></div>`).join('');
 
-  const sizeOpts = (currentProduct.sizes||[]).map(s => {
+  const sizeOpts = sizes.map(s => {
     const label = s.label || s;
-    const dims  = s.length ? ` ${s.length}×${s.width}` : '';
+    const dims  = s.length ? ` ${s.length}×${s.width}سم` : '';
     return `<div class="size-option ${label===selectedSize?'selected':''}" onclick="selectSize('${label}',this)">${label}${dims}</div>`;
   }).join('') || '<div class="size-option selected" onclick="selectSize(\'M\',this)">M</div>';
 
@@ -1244,15 +1244,33 @@ function openProduct(p) {
     ? `<img src="${currentProduct.img}" alt="${currentProduct.name}">`
     : `🧕`;
 
+  const categoryBadge = currentProduct.category === 'ready'
+    ? `<span style="background:#EAFAF1;color:#27AE60;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;display:inline-block;margin-bottom:10px">✅ جاهزة للتسليم الفوري</span>`
+    : `<span style="background:#FEF9E7;color:#E67E22;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;display:inline-block;margin-bottom:10px">✂️ تحتاج تفصيل</span>`;
+
+  const stockHtml = currentProduct.stock > 0
+    ? `<div style="font-size:12px;color:#27AE60;margin-bottom:10px">✅ متاح: ${currentProduct.stock} قطعة</div>`
+    : '';
+
+  const descHtml = currentProduct.desc
+    ? `<div style="background:var(--cream2);border-radius:10px;padding:12px;margin-top:10px;font-size:13px;color:var(--text2);line-height:1.7">
+        <div style="font-size:11px;font-weight:700;color:var(--burgundy);margin-bottom:6px">📝 تفاصيل العباية</div>
+        ${currentProduct.desc}
+      </div>`
+    : '';
+
   document.getElementById('productDetailContent').innerHTML = `
     <div class="product-detail-img">${imgHtml}</div>
     <div class="product-detail-info">
-      <div class="detail-name">${isAr ? currentProduct.name : currentProduct.nameEn}</div>
-      <div class="detail-price">${currentProduct.price.toFixed(3)} ر.ع</div>
-      <div class="detail-label">${t('colorLabel')}</div>
-      <div class="color-picker" id="colorPicker">${colorOpts}</div>
-      <div class="detail-label">${t('sizeLabel')}</div>
-      <div class="size-picker" id="sizePicker">${sizeOpts}</div>
+      <div class="detail-name">${currentProduct.name}</div>
+      ${categoryBadge}
+      <div class="detail-price">${(currentProduct.price||0).toFixed(3)} ر.ع</div>
+      ${stockHtml}
+      ${colors.length ? `<div class="detail-label">${t('colorLabel')}</div>
+      <div class="color-picker" id="colorPicker">${colorOpts}</div>` : ''}
+      ${sizes.length ? `<div class="detail-label">${t('sizeLabel')}</div>
+      <div class="size-picker" id="sizePicker">${sizeOpts}</div>` : ''}
+      ${descHtml}
     </div>`;
 
   openModal('productModal');
