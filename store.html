@@ -746,8 +746,237 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 </div>
 
 <!-- Firebase -->
-<!-- Firebase Compat SDK (no eval) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, collection, addDoc, onSnapshot, query, where, getDocs, setDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut as fbSignOut, onAuthStateChanged, updateProfile,
+  GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
+  authDomain: "bylubna-f31a4.firebaseapp.com",
+  projectId: "bylubna-f31a4",
+  storageBucket: "bylubna-f31a4.firebasestorage.app",
+  messagingSenderId: "331210998611",
+  appId: "1:331210998611:web:e1c639a66036242fa917a6"
+};
+
+let fbApp, fsDB, fbAuth;
+try { fbApp = initializeApp(FIREBASE_CONFIG, 'bylubna-store'); }
+catch(e) { fbApp = initializeApp(FIREBASE_CONFIG); }
+fsDB   = getFirestore(fbApp);
+fbAuth = getAuth(fbApp);
+
+window.__storeAuth = fbAuth;
+window.__fsDB      = fsDB;
+
+// Auth state
+onAuthStateChanged(fbAuth, user => {
+  window.__storeUser = user;
+  updateAuthUI(user);
+  if (user) loadUserOrders(user.uid);
+});
+
+// Load store data from Firestore
+async function loadStoreData() {
+  try {
+    const snap = await getDocs(collection(fsDB, 'bylubna_data'));
+    let data = {};
+    snap.forEach(d => { data = { ...data, ...d.data() }; });
+    if (data.collection) {
+      renderFilters(data);
+      renderProducts(data.collection || []);
+    } else {
+      renderDemoProducts();
+    }
+  } catch(e) {
+    console.error('Firestore load error:', e);
+    renderDemoProducts();
+  }
+  document.getElementById('loadingScreen').style.display = 'none';
+}
+
+// Also try to read from admin's Realtime DB path via Firestore mirror
+// For now load collection from Firestore
+loadStoreData();
+
+// Auto-hide loading after 3s
+setTimeout(() => {
+  const ls = document.getElementById('loadingScreen');
+  if (ls) ls.style.display = 'none';
+}, 3000);
+
+// ===== Auth Functions =====
+window.doLogin = async function() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPass').value;
+  const err   = document.getElementById('authError');
+  const btn   = document.getElementById('loginBtn');
+  err.textContent = '';
+  if (!email || !pass) { err.textContent = 'أدخلي البريد وكلمة المرور'; return; }
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    await signInWithEmailAndPassword(fbAuth, email, pass);
+    closeModal('authModal');
+    showToast('✅ مرحباً بك!', 'success');
+  } catch(e) {
+    const msgs = {'auth/wrong-password':'كلمة المرور غير صحيحة','auth/user-not-found':'البريد غير موجود','auth/invalid-credential':'بيانات الدخول غير صحيحة','auth/too-many-requests':'محاولات كثيرة'};
+    err.textContent = msgs[e.code] || e.message;
+  }
+  btn.disabled = false; btn.textContent = 'دخول';
+};
+
+window.doRegister = async function() {
+  const email = document.getElementById('regEmail').value.trim();
+  const pass  = document.getElementById('regPass').value;
+  const first = document.getElementById('regFirstName').value.trim();
+  const last  = document.getElementById('regLastName').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const err   = document.getElementById('regError');
+  const btn   = document.getElementById('registerBtn');
+  err.textContent = '';
+  if (!email || !pass || !first) { err.textContent = 'يرجى تعبئة جميع الحقول'; return; }
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const cred = await createUserWithEmailAndPassword(fbAuth, email, pass);
+    await updateProfile(cred.user, { displayName: (first+' '+last).trim() });
+    await setDoc(doc(fsDB, 'customers', cred.user.uid), {
+      name:(first+' '+last).trim(), email, phone, createdAt:new Date().toISOString()
+    });
+    closeModal('authModal');
+    showToast('✅ أهلاً '+first+'!', 'success');
+  } catch(e) {
+    const msgs = {'auth/email-already-in-use':'البريد مستخدم بالفعل','auth/weak-password':'كلمة المرور قصيرة'};
+    err.textContent = msgs[e.code] || e.message;
+  }
+  btn.disabled = false; btn.textContent = 'إنشاء حساب';
+};
+
+window.doGoogleSignIn = async function() {
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    await signInWithPopup(fbAuth, provider);
+    closeModal('authModal');
+    showToast('✅ تم الدخول بـ Google!', 'success');
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user')
+      showToast('خطأ في تسجيل الدخول بـ Google', 'error');
+  }
+};
+
+window.doPhoneAuth = async function() {
+  const otpSec = document.getElementById('otpSection');
+  const err    = document.getElementById('phoneError');
+  err.textContent = '';
+  if (otpSec.style.display === 'none') {
+    const phone = document.getElementById('phoneInput').value.trim();
+    if (!phone) { err.textContent = 'أدخلي رقم الهاتف'; return; }
+    try {
+      if (!window.__recaptcha)
+        window.__recaptcha = new RecaptchaVerifier(fbAuth, 'recaptchaContainer', {size:'invisible'});
+      window.__confirmResult = await signInWithPhoneNumber(fbAuth, phone, window.__recaptcha);
+      otpSec.style.display = '';
+      document.getElementById('phoneBtn').textContent = 'تأكيد الرمز';
+      showToast('📱 تم إرسال الرمز', 'success');
+    } catch(e) { err.textContent = e.message; }
+  } else {
+    const code = document.getElementById('otpInput').value.trim();
+    if (!code) { err.textContent = 'أدخلي الرمز'; return; }
+    try {
+      await window.__confirmResult.confirm(code);
+      closeModal('authModal'); showToast('✅ تم التحقق!', 'success');
+    } catch(e) { err.textContent = 'رمز خاطئ'; }
+  }
+};
+
+window.signOut = async function() {
+  await fbSignOut(fbAuth);
+  showPage('store');
+  showToast('تم تسجيل الخروج', 'success');
+};
+
+function updateAuthUI(user) {
+  const authBtn   = document.getElementById('authBtn');
+  const authLabel = document.getElementById('authLabel');
+  if (user) {
+    authLabel.textContent = (user.displayName||'حسابي').split(' ')[0];
+    authBtn.onclick = () => showPage('account');
+    document.getElementById('accountName').textContent  = user.displayName||user.email;
+    document.getElementById('accountEmail').textContent = user.email||user.phoneNumber||'';
+    document.getElementById('accountAvatar').textContent = (user.displayName||'?')[0].toUpperCase();
+  } else {
+    authLabel.textContent = 'دخول';
+    authBtn.onclick = () => showAuthModal();
+  }
+}
+
+async function loadUserOrders(uid) {
+  const ordersEl = document.getElementById('ordersList');
+  try {
+    const q = query(collection(fsDB, 'store_orders'), where('customerId','==',uid));
+    onSnapshot(q, snap => {
+      const orders = snap.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||'')>(a.createdAt||'')?1:-1);
+      if (!orders.length) {
+        ordersEl.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:48px">📦</div><p>لا توجد طلبات بعد</p></div>';
+        return;
+      }
+      const sm = {'جديد':'status-new','قيد التفصيل':'status-tailor','جاهز للتسليم':'status-ready','تم التسليم':'status-done','ملغي':'status-cancelled'};
+      ordersEl.innerHTML = orders.map(o => `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div class="order-card-bill">📋 ${o.bill||''}</div>
+            <span class="order-status ${sm[o.status]||'status-new'}">${o.status||'جديد'}</span>
+          </div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:8px">تاريخ الطلب: <strong>${o.orderDate||'—'}</strong></div>
+          ${(o.items||[]).map(it=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
+              <div style="font-size:24px">🧕</div>
+              <div style="flex:1"><div style="font-weight:600;font-size:13px">${it.type||'عباية'} ${it.color?'— '+it.color:''}</div></div>
+              <div style="font-weight:700;color:var(--burgundy)">${((it.price||0)*(it.qty||1)).toFixed(3)} ر.ع</div>
+            </div>`).join('')}
+          <div style="text-align:left;font-weight:700;color:var(--burgundy);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            الإجمالي: ${((o.amount||0)*(o.qty||1)).toFixed(3)} ر.ع
+          </div>
+        </div>`).join('');
+    });
+  } catch(e) { console.error(e); }
+}
+
+window.placeOrder = async function() {
+  const name    = document.getElementById('coName').value.trim();
+  const phone   = document.getElementById('coPhone').value.trim();
+  const address = document.getElementById('coAddress').value.trim();
+  const notes   = document.getElementById('coNotes').value.trim();
+  if (!name || !phone) { showToast('⚠️ أدخلي الاسم والهاتف', 'error'); goCheckoutStep(1); return; }
+  const btn = document.getElementById('placeOrderBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+  const total    = cart.reduce((s,i)=>s+(i.price||0)*(i.qty||1),0);
+  const totalQty = cart.reduce((s,i)=>s+(i.qty||1),0);
+  const bill     = 'STO-'+Date.now().toString().slice(-6);
+  const today    = new Date().toISOString().split('T')[0];
+  const items    = cart.map(i=>({type:i.name,color:i.selectedColor||'',size:i.selectedSize||'',qty:i.qty||1,price:i.price||0}));
+  const orderData = {
+    bill, name, phone, address, notes, orderDate:today,
+    items, amount:totalQty?total/totalQty:0, qty:totalQty,
+    status:'جديد', source:'store',
+    customerId:window.__storeUser?.uid||'',
+    createdAt:new Date().toISOString()
+  };
+  try {
+    await addDoc(collection(fsDB, 'store_orders'), orderData);
+    document.getElementById('successBill').textContent = 'رقم الطلب: '+bill;
+    goCheckoutStep(3);
+    showToast('🎉 تم الطلب!', 'success');
+  } catch(e) {
+    showToast('❌ حدث خطأ، حاول مرة أخرى', 'error');
+  }
+  btn.disabled = false; btn.textContent = 'تأكيد الطلب';
+};
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
