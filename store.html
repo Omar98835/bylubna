@@ -792,12 +792,10 @@ window.__fbPush    = (r, data) => push(r, data);
 // معالجة نتيجة الـ redirect بعد العودة من Google
 getRedirectResult(fbAuth).then(result => {
   if (result && result.user) {
-    closeModal('authModal');
     showToast('✅ تم الدخول بـ Google!', 'success');
-    loadCartFromCloud();
   }
 }).catch(e => {
-  if (e.code !== 'auth/no-current-user') console.error(e);
+  if (e.code && e.code !== 'auth/no-current-user') console.error(e);
 });
 
 // Auth state
@@ -805,8 +803,9 @@ onAuthStateChanged(fbAuth, user => {
   window.__storeUser = user;
   updateAuthUI(user);
   if (user) {
+    closeModal('authModal');
     loadUserOrders(user.uid);
-    loadCartFromCloud();
+    setTimeout(() => loadCartFromCloud(), 500);
   }
 });
 
