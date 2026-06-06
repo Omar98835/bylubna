@@ -1141,6 +1141,7 @@ const COLOR_MAP = {
 
 function getColorHex(name) {
   if (!name) return '#C9A96E';
+  if (name.startsWith('#')) return name;
   const lower = name.toLowerCase();
   for (const [k,v] of Object.entries(COLOR_MAP)) {
     if (lower.includes(k.toLowerCase())) return v;
