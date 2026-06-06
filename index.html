@@ -1644,8 +1644,10 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
           <div class="form-group full">
             <label>الألوان المتاحة</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="col_colorsDisplay"></div>
-            <div style="display:flex;gap:8px">
-              <input type="text" id="col_colorInput" placeholder="اكتب اللون ثم اضغط +" style="flex:1" list="colorList"
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="color" id="col_colorPicker" value="#7B1B42"
+                style="width:44px;height:40px;padding:2px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;background:none">
+              <input type="text" id="col_colorInput" placeholder="اسم اللون (اختياري)" style="flex:1"
                 onkeydown="if(event.key==='Enter')addColColor()">
               <button type="button" class="btn btn-primary btn-sm" onclick="addColColor()">+</button>
             </div>
@@ -5303,8 +5305,12 @@ function clearColImg() {
 }
 
 function addColColor() {
-  const inp = document.getElementById('col_colorInput');
-  const val = inp.value.trim();
+  const inp    = document.getElementById('col_colorInput');
+  const picker = document.getElementById('col_colorPicker');
+  const name   = inp.value.trim();
+  const hex    = picker ? picker.value : '#000000';
+  // استخدم الاسم إذا كتبت، وإلا استخدم الـ hex
+  const val = name || hex;
   if (!val || colColors.includes(val)) { inp.value=''; return; }
   colColors.push(val);
   inp.value = '';
@@ -5312,13 +5318,16 @@ function addColColor() {
 }
 
 function renderColColors() {
-  document.getElementById('col_colorsDisplay').innerHTML = colColors.map((c,i) =>
-    `<span style="display:flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px">
-      <span style="width:14px;height:14px;border-radius:50%;background:${getColorHexAdmin(c)};display:inline-block"></span>
-      ${c}
+  document.getElementById('col_colorsDisplay').innerHTML = colColors.map((c,i) => {
+    const isHex = c.startsWith('#');
+    const bg = isHex ? c : getColorHexAdmin(c);
+    const label = isHex ? c : c;
+    return `<span style="display:flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px">
+      <span style="width:14px;height:14px;border-radius:50%;background:${bg};display:inline-block;border:1px solid rgba(0,0,0,0.1)"></span>
+      ${label}
       <button onclick="removeColColor(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;padding:0 2px">×</button>
-    </span>`
-  ).join('');
+    </span>`;
+  }).join('');
 }
 
 function removeColColor(i) { colColors.splice(i,1); renderColColors(); }
