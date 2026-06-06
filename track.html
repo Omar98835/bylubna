@@ -3,270 +3,249 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>By Lubna — تتبع الطلب</title>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+<title>تتبع طلبك — By Lubna</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Tajawal',sans-serif; background:#FAF6F0; color:#2C1A12; min-height:100vh; }
-.header {
-  background: #7B1B42; color:#fff;
-  padding:20px 24px; text-align:center;
-  border-bottom:3px solid #C9A96E;
-}
-.header-logo {
-  font-size:24px; font-weight:700; letter-spacing:3px;
-  font-family:'Georgia',serif;
-}
-.header-sub { font-size:13px; opacity:.8; margin-top:4px; }
-.container { max-width:600px; margin:32px auto; padding:0 20px; }
-.search-box {
-  background:#fff; border-radius:16px; padding:28px;
-  box-shadow:0 4px 20px rgba(123,27,66,0.1);
-  margin-bottom:24px; text-align:center;
-}
-.search-box h2 { font-size:18px; margin-bottom:16px; color:#7B1B42; }
-.search-row { display:flex; gap:10px; }
-.search-input {
-  flex:1; padding:12px 16px; border:1.5px solid #DDD0C0;
-  border-radius:10px; font-size:15px; font-family:inherit;
-  direction:ltr; text-align:center;
-}
-.search-input:focus { outline:none; border-color:#7B1B42; }
-.search-btn {
-  background:#7B1B42; color:#fff; border:none;
-  padding:12px 20px; border-radius:10px;
-  font-size:14px; font-weight:700; cursor:pointer;
-  font-family:inherit; white-space:nowrap;
-}
-.search-btn:hover { background:#9B2856; }
-
-/* Result */
-.result-card {
-  background:#fff; border-radius:16px; padding:28px;
-  box-shadow:0 4px 20px rgba(123,27,66,0.1);
-}
-.result-header {
-  display:flex; justify-content:space-between; align-items:flex-start;
-  margin-bottom:20px; flex-wrap:wrap; gap:10px;
-}
-.bill-no { font-size:18px; font-weight:700; color:#7B1B42; }
-.status-badge {
-  padding:6px 14px; border-radius:20px;
-  font-size:13px; font-weight:700;
-}
-.s-new    { background:#E8F4FD; color:#2980B9; }
-.s-tailor { background:#FEF9E7; color:#E67E22; }
-.s-ready  { background:#EAFAF1; color:#27AE60; }
-.s-done   { background:#F0F3F4; color:#7F8C8D; }
-.s-cancel { background:#FDEDEC; color:#E74C3C; }
-
-.info-row {
-  display:flex; justify-content:space-between;
-  padding:10px 0; border-bottom:1px solid #F3EDE4;
-  font-size:14px;
-}
-.info-row:last-child { border-bottom:none; }
-.info-label { color:#6B4C3B; }
-.info-value { font-weight:600; }
-
-.timeline { margin-top:24px; }
-.timeline-title { font-size:14px; font-weight:700; margin-bottom:16px; color:#7B1B42; }
-.step {
-  display:flex; align-items:flex-start; gap:14px;
-  margin-bottom:16px;
-}
-.step-dot {
-  width:32px; height:32px; border-radius:50%; flex-shrink:0;
-  display:flex; align-items:center; justify-content:center;
-  font-size:16px; border:2px solid #DDD0C0;
-  background:#FAF6F0;
-}
-.step.done .step-dot { background:#EAFAF1; border-color:#27AE60; }
-.step.active .step-dot { background:#7B1B42; border-color:#7B1B42; color:#fff; }
-.step-content { flex:1; padding-top:4px; }
-.step-label { font-size:14px; font-weight:600; }
-.step-date { font-size:12px; color:#6B4C3B; margin-top:2px; }
-
-.items-section { margin-top:20px; }
-.items-title { font-size:14px; font-weight:700; margin-bottom:12px; color:#7B1B42; }
-.item-row {
-  display:flex; align-items:center; gap:12px;
-  padding:10px 0; border-bottom:1px solid #F3EDE4;
-}
-.item-row:last-child { border-bottom:none; }
-.item-icon { font-size:28px; }
-.item-info { flex:1; }
-.item-name { font-size:14px; font-weight:600; }
-.item-meta { font-size:12px; color:#6B4C3B; margin-top:2px; }
-.item-price { font-weight:700; color:#7B1B42; font-size:14px; }
-
-.measurements-box {
-  background:#FEF9E7; border-radius:10px; padding:14px;
-  margin-top:16px; border:1px solid #F0C040;
-}
-.measurements-title { font-size:13px; font-weight:700; color:#E67E22; margin-bottom:8px; }
-.m-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; }
-
-.not-found {
-  text-align:center; padding:48px 24px;
-}
-.not-found .icon { font-size:56px; margin-bottom:16px; }
-.not-found h3 { font-size:18px; font-weight:700; margin-bottom:8px; color:#7B1B42; }
-.not-found p { font-size:13px; color:#6B4C3B; }
-
-.loading { text-align:center; padding:40px; color:#6B4C3B; }
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#EDE3D7;--card:#FAF6F1;--burgundy:#7B1B42;--gold:#C9A96E;--text:#2C1A12;--muted:#8A6A5A;--border:#D4C4B0;--success:#4A7C59;--warning:#B8860B;--danger:#8B2020;--info:#2B5F8A}
+body{font-family:'Cairo','Segoe UI',sans-serif;background:var(--bg);color:var(--text);direction:rtl;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.top-bar{width:100%;background:var(--card);border-bottom:3px solid var(--burgundy);padding:16px 24px;text-align:center;box-shadow:0 2px 12px rgba(123,27,66,0.12)}
+.brand-logo{font-size:26px;font-weight:800;color:var(--burgundy);letter-spacing:5px;font-family:'Times New Roman',serif}
+.brand-sub{font-size:12px;color:var(--gold);letter-spacing:2px;margin-top:3px}
+.wrapper{width:100%;max-width:540px;padding:28px 16px 48px}
+.card{background:var(--card);border-radius:16px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(123,27,66,0.1);overflow:hidden}
+.card-header{background:linear-gradient(135deg,var(--burgundy),#9B2856);padding:20px 24px;color:white;text-align:center}
+.card-header h2{font-size:15px;font-weight:600;opacity:0.85;margin-bottom:4px}
+.bill-number{font-size:24px;font-weight:800;letter-spacing:2px}
+.card-body{padding:24px}
+.greeting{font-size:16px;font-weight:700;color:var(--burgundy);margin-bottom:16px;text-align:center}
+.status-message{text-align:center;font-size:14px;font-weight:600;margin-bottom:20px;padding:10px 16px;background:var(--bg);border-radius:8px}
+.progress-section{margin-bottom:24px}
+.progress-title{font-size:13px;color:var(--muted);margin-bottom:10px;font-weight:600}
+.progress-track{background:var(--border);border-radius:20px;height:8px;overflow:hidden;margin-bottom:6px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--burgundy),var(--gold));border-radius:20px;transition:width 0.8s ease;width:0%}
+.progress-pct{text-align:left;font-size:11px;color:var(--muted)}
+.steps-row{display:flex;justify-content:space-between;margin-top:16px;gap:4px}
+.step{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px}
+.step-dot{width:28px;height:28px;border-radius:50%;background:var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transition:all 0.3s}
+.step.done .step-dot{background:var(--burgundy);color:white}
+.step.current .step-dot{background:var(--gold);color:white;box-shadow:0 0 0 3px rgba(201,169,110,0.35)}
+.step-label{font-size:10px;color:var(--muted)}
+.step.done .step-label{color:var(--burgundy);font-weight:600}
+.step.current .step-label{color:var(--gold);font-weight:700}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.info-cell{background:var(--bg);border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+.info-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.info-value{font-size:14px;font-weight:700;color:var(--text)}
+.measurements-box{background:#FEF9E7;border-right:3px solid var(--gold);border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #F0C040}
+.measurements-title{font-size:13px;font-weight:700;color:#E67E22;margin-bottom:8px}
+.m-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #F9ECBF}
+.m-row:last-child{border-bottom:none}
+.remark-box{background:#FAF6F1;border-right:3px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:var(--muted)}
+.remark-box strong{color:var(--text)}
+.cancelled-note{display:none;background:#fff0f0;border:1px solid #ffcdd2;border-radius:10px;padding:14px;text-align:center;color:var(--danger);font-size:13px;font-weight:600;margin-bottom:16px}
+.track-footer{text-align:center;padding:20px 24px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;line-height:2}
+.track-footer .brand{color:var(--burgundy);font-weight:700;font-size:14px;letter-spacing:2px}
+.state-card{text-align:center;padding:48px 24px}
+.state-icon{font-size:52px;margin-bottom:16px}
+.state-title{font-size:18px;font-weight:700;color:var(--burgundy);margin-bottom:8px}
+.state-sub{font-size:13px;color:var(--muted);line-height:1.7}
+#loadingState{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--burgundy);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-logo">BY LUBNA</div>
-  <div class="header-sub">✦ تتبع طلبك ✦</div>
+<div class="top-bar">
+  <div class="brand-logo">BY LUBNA</div>
+  <div class="brand-sub">✦ تتبع طلبك ✦</div>
 </div>
 
-<div class="container">
-  <div class="search-box">
-    <h2>🔍 تتبع حالة طلبك</h2>
-    <div class="search-row">
-      <input type="text" class="search-input" id="billInput"
-        placeholder="STO-123456 أو BL-2026-001"
-        value="">
-      <button class="search-btn" onclick="searchOrder()">بحث</button>
+<div class="wrapper">
+  <div id="loadingState">
+    <div class="spinner"></div>
+    <div style="color:var(--muted);font-size:14px">جاري تحميل بيانات طلبك...</div>
+  </div>
+  <div id="errorState" style="display:none" class="card">
+    <div class="state-card">
+      <div class="state-icon">⚠️</div>
+      <div class="state-title">تعذّر تحميل البيانات</div>
+      <div class="state-sub">يرجى التحقق من الرابط أو التواصل مع By Lubna مباشرةً</div>
     </div>
   </div>
-
-  <div id="result"></div>
+  <div id="noBillState" style="display:none" class="card">
+    <div class="state-card">
+      <div class="state-icon">🔍</div>
+      <div class="state-title">لم يُحدَّد رقم الطلب</div>
+      <div class="state-sub">يرجى استخدام الرابط الذي أرسلته لك By Lubna عبر واتساب</div>
+    </div>
+  </div>
+  <div id="notFoundState" style="display:none" class="card">
+    <div class="state-card">
+      <div class="state-icon">📭</div>
+      <div class="state-title">لم يُعثَر على الطلب</div>
+      <div class="state-sub">لا يوجد طلب برقم <span id="billSearched" style="font-weight:700;color:var(--text)"></span><br>يرجى مراجعة الرابط أو التواصل مع By Lubna</div>
+    </div>
+  </div>
+  <div id="trackCard" style="display:none" class="card">
+    <div class="card-header">
+      <h2>رقم الطلب</h2>
+      <div class="bill-number" id="trackBill">—</div>
+    </div>
+    <div class="card-body">
+      <div class="greeting">مرحباً <span id="trackName"></span> 💝</div>
+      <div class="status-message" id="statusMessage"></div>
+      <div class="cancelled-note" id="cancelledNote">❌ تم إلغاء هذا الطلب — يرجى التواصل مع By Lubna</div>
+      <div class="progress-section">
+        <div class="progress-title">مرحلة الطلب</div>
+        <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
+        <div class="progress-pct" id="progressPct">0%</div>
+        <div class="steps-row" id="progressSteps"></div>
+      </div>
+      <div class="info-grid">
+        <div class="info-cell"><div class="info-label">الحالة</div><div class="info-value" id="trackStatus">—</div></div>
+        <div class="info-cell"><div class="info-label">تاريخ الطلب</div><div class="info-value" id="trackOrderDate">—</div></div>
+        <div class="info-cell"><div class="info-label">موعد التسليم المتوقع</div><div class="info-value" id="trackDeliverDate">—</div></div>
+        <div class="info-cell"><div class="info-label">المبلغ الإجمالي</div><div class="info-value" id="trackAmount">—</div></div>
+        <div class="info-cell"><div class="info-label">نوع العباية</div><div class="info-value" id="trackType">—</div></div>
+        <div class="info-cell"><div class="info-label">اللون</div><div class="info-value" id="trackColor">—</div></div>
+      </div>
+      <div id="measurementsSection" style="display:none" class="measurements-box">
+        <div class="measurements-title">✂️ مقاسات التفصيل</div>
+        <div class="m-row"><span>الطول الكلي</span><strong id="mHeight">—</strong></div>
+        <div class="m-row"><span>العرض (الكتفين)</span><strong id="mWidth">—</strong></div>
+        <div class="m-row"><span>طول الكم من نصف الرقبة</span><strong id="mSleeve">—</strong></div>
+      </div>
+      <div class="remark-box"><strong>ملاحظات:</strong> <span id="trackRemark"></span></div>
+    </div>
+    <div class="track-footer">
+      <div class="brand">BY LUBNA</div>
+      <p>شكراً لثقتك بنا 💝</p>
+    </div>
+  </div>
 </div>
 
 <script>
 const DB_URL = 'https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app/bylubna/orders.json';
 
-window.searchOrder = async function() {
-  const bill = document.getElementById('billInput').value.trim().toUpperCase();
-  if (!bill) return;
-  const resultEl = document.getElementById('result');
-  resultEl.innerHTML = '<div class="loading">⏳ جاري البحث...</div>';
-
-  try {
-    const res = await fetch(DB_URL);
-    const raw = await res.json();
-    if (!raw) { showNotFound(bill); return; }
-
-    const orders = Array.isArray(raw) ? raw.filter(Boolean) : Object.values(raw).filter(Boolean);
-    const order = orders.find(o => o && (o.bill||'').toUpperCase() === bill);
-
-    if (!order) { showNotFound(bill); return; }
-    showOrder(order);
-  } catch(e) {
-    console.error(e);
-    resultEl.innerHTML = '<div class="result-card not-found"><div class="icon">⚠️</div><h3>حدث خطأ</h3><p>حاول مرة أخرى</p></div>';
-  }
+const STATUS_MAP = {
+  'جديد':             { msg:'✦ تم استلام طلبك وسيبدأ التحضير قريباً', color:'#2B5F8A' },
+  'قيد التفصيل':     { msg:'✂️ طلبك الآن قيد التفصيل',               color:'#B8860B' },
+  'جاهز للتسليم':    { msg:'✅ طلبك جاهز! سيتم التواصل معك للتسليم',  color:'#4A7C59' },
+  'جاهز':            { msg:'✅ طلبك جاهز! سيتم التواصل معك للتسليم',  color:'#4A7C59' },
+  'تم التسليم':      { msg:'🎉 تم تسليم طلبك بنجاح — شكراً لثقتك',    color:'#7B1B42' },
+  'ملغي':            { msg:'❌ تم إلغاء هذا الطلب',                     color:'#8B2020' },
 };
 
-function showNotFound(bill) {
-  document.getElementById('result').innerHTML = `
-    <div class="result-card not-found">
-      <div class="icon">📭</div>
-      <h3>لم يُعثَر على الطلب</h3>
-      <p>لا يوجد طلب برقم <strong>${bill}</strong></p>
-      <p style="margin-top:8px">يرجى مراجعة الرابط أو التواصل مع By Lubna</p>
-    </div>`;
+function show(id) { document.getElementById(id).style.display = 'block'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+async function boot() {
+  const params = new URLSearchParams(window.location.search);
+  const billId = (params.get('id') || params.get('bill') || '').trim();
+
+  if (!billId) { hide('loadingState'); show('noBillState'); return; }
+
+  let orders = [];
+
+  try {
+    const res  = await fetch(DB_URL);
+    const raw  = await res.json();
+    if (raw) {
+      orders = Array.isArray(raw) ? raw.filter(Boolean) : Object.values(raw).filter(Boolean);
+    }
+  } catch(e) {
+    console.warn('Fetch error:', e);
+  }
+
+  // fallback localStorage
+  if (!orders.length) {
+    try {
+      const saved = localStorage.getItem('bylubna_app');
+      if (saved) orders = JSON.parse(saved).orders || [];
+    } catch(e) {}
+  }
+
+  hide('loadingState');
+
+  if (!orders.length) { show('errorState'); return; }
+
+  const order = orders.find(o =>
+    o && (o.bill||'').trim().toLowerCase() === billId.toLowerCase()
+  );
+
+  if (!order) {
+    show('notFoundState');
+    document.getElementById('billSearched').textContent = billId;
+    return;
+  }
+
+  renderOrder(order);
 }
 
-function showOrder(o) {
-  const statusMap = {
-    'جديد': { label:'جديد', cls:'s-new', icon:'🆕' },
-    'قيد التفصيل': { label:'قيد التفصيل', cls:'s-tailor', icon:'✂️' },
-    'جاهز للتسليم': { label:'جاهز للتسليم', cls:'s-ready', icon:'✅' },
-    'تم التسليم': { label:'تم التسليم', cls:'s-done', icon:'📦' },
-    'ملغي': { label:'ملغي', cls:'s-cancel', icon:'❌' },
+function renderOrder(o) {
+  const firstName  = (o.name||'').split(' ')[0] || 'الزبونة الكريمة';
+  const statusInfo = STATUS_MAP[o.status] || STATUS_MAP['جديد'];
+  const total      = ((o.amount||0)*(o.qty||1)).toFixed(3);
+
+  show('trackCard');
+  document.getElementById('trackBill').textContent        = o.bill||'-';
+  document.getElementById('trackName').textContent        = firstName;
+  document.getElementById('trackOrderDate').textContent   = o.orderDate||'-';
+  document.getElementById('trackDeliverDate').textContent = o.deliverDate||'-';
+  document.getElementById('trackAmount').textContent      = total + ' ر.ع';
+  document.getElementById('trackType').textContent        = o.type||'-';
+  document.getElementById('trackColor').textContent       = o.color||'-';
+  document.getElementById('trackRemark').textContent      = o.remark||'لا توجد ملاحظات';
+
+  // مقاسات التفصيل
+  if (o.measurements) {
+    show('measurementsSection');
+    document.getElementById('mHeight').textContent = o.measurements.height||'-';
+    document.getElementById('mWidth').textContent  = o.measurements.width||'-';
+    document.getElementById('mSleeve').textContent = o.measurements.sleeve||'-';
+  }
+
+  // Status badge
+  const badgeColors = {
+    'جديد':'background:#e3f2fd;color:#1565c0',
+    'قيد التفصيل':'background:#fff3e0;color:#e65100',
+    'جاهز للتسليم':'background:#e8f5e9;color:#2e7d32',
+    'جاهز':'background:#e8f5e9;color:#2e7d32',
+    'تم التسليم':'background:#f3e5f5;color:#6a1b9a',
+    'ملغي':'background:#ffebee;color:#c62828'
   };
-  const s = statusMap[o.status] || statusMap['جديد'];
+  document.getElementById('trackStatus').innerHTML =
+    `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;${badgeColors[o.status]||''}">${o.status||'جديد'}</span>`;
 
-  const steps = [
-    { label:'استلام الطلب', icon:'📋', done: true, date: o.orderDate||'' },
-    { label:'قيد التفصيل / التجهيز', icon:'✂️',
-      done: ['قيد التفصيل','جاهز للتسليم','تم التسليم'].includes(o.status),
-      active: o.status === 'قيد التفصيل' },
-    { label:'جاهز للتسليم', icon:'🎁',
-      done: ['جاهز للتسليم','تم التسليم'].includes(o.status),
-      active: o.status === 'جاهز للتسليم' },
-    { label:'تم التسليم', icon:'✅',
-      done: o.status === 'تم التسليم',
-      active: false, date: o.deliverDate||'' },
-  ];
+  const msgEl = document.getElementById('statusMessage');
+  msgEl.textContent = statusInfo.msg;
+  msgEl.style.color = statusInfo.color;
 
-  const items = o.items || [{ type: o.type||'عباية', color: o.color||'', qty: o.qty||1, price: o.amount||0 }];
+  if (o.status === 'ملغي') document.getElementById('cancelledNote').style.display = 'block';
 
-  const measureHtml = o.measurements ? `
-    <div class="measurements-box">
-      <div class="measurements-title">✂️ مقاسات التفصيل</div>
-      <div class="m-row"><span>الطول الكلي</span><strong>${o.measurements.height||'-'}</strong></div>
-      <div class="m-row"><span>العرض (الكتفين)</span><strong>${o.measurements.width||'-'}</strong></div>
-      <div class="m-row"><span>طول الكم من نصف الرقبة</span><strong>${o.measurements.sleeve||'-'}</strong></div>
-    </div>` : '';
+  // Progress
+  const steps   = ['جديد','قيد التفصيل','جاهز للتسليم','تم التسليم'];
+  const stepIdx = steps.indexOf(o.status === 'جاهز' ? 'جاهز للتسليم' : o.status);
+  const pct     = o.status==='تم التسليم' ? 100
+                : o.status==='ملغي'       ? 0
+                : Math.round(Math.max(0,stepIdx)/(steps.length-1)*100);
 
-  const total = items.reduce((sum,i) => sum + (i.price||0)*(i.qty||1), 0);
+  document.getElementById('progressBar').style.width = pct+'%';
+  document.getElementById('progressPct').textContent = pct+'%';
 
-  document.getElementById('result').innerHTML = `
-    <div class="result-card">
-      <div class="result-header">
-        <div class="bill-no">📋 ${o.bill}</div>
-        <span class="status-badge ${s.cls}">${s.icon} ${s.label}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">الاسم</span>
-        <span class="info-value">${o.name||'-'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">تاريخ الطلب</span>
-        <span class="info-value">${o.orderDate||'-'}</span>
-      </div>
-      ${o.deliverDate ? `<div class="info-row">
-        <span class="info-label">تاريخ التسليم</span>
-        <span class="info-value">${o.deliverDate}</span>
-      </div>` : ''}
-      <div class="info-row">
-        <span class="info-label">الإجمالي</span>
-        <span class="info-value" style="color:#7B1B42">${total.toFixed(3)} ر.ع</span>
-      </div>
-      ${(o.remaining||0) > 0 ? `<div class="info-row">
-        <span class="info-label">المتبقي</span>
-        <span class="info-value" style="color:#E67E22">${(o.remaining||0).toFixed(3)} ر.ع</span>
-      </div>` : ''}
-      <div class="items-section">
-        <div class="items-title">🧕 العبايات</div>
-        ${items.map(item => `
-          <div class="item-row">
-            <div class="item-icon">🧕</div>
-            <div class="item-info">
-              <div class="item-name">${item.type||'عباية'}</div>
-              <div class="item-meta">${[item.color, item.size, (item.qty||1)>1?'الكمية: '+item.qty:''].filter(Boolean).join(' • ')}</div>
-            </div>
-            <div class="item-price">${((item.price||0)*(item.qty||1)).toFixed(3)} ر.ع</div>
-          </div>`).join('')}
-      </div>
-      ${measureHtml}
-      <div class="timeline">
-        <div class="timeline-title">📍 مراحل الطلب</div>
-        ${steps.map(step => `
-          <div class="step ${step.done?'done':''} ${step.active?'active':''}">
-            <div class="step-dot">${step.done && !step.active ? '✓' : step.icon}</div>
-            <div class="step-content">
-              <div class="step-label">${step.label}</div>
-              ${step.date ? `<div class="step-date">${step.date}</div>` : ''}
-            </div>
-          </div>`).join('')}
-      </div>
+  document.getElementById('progressSteps').innerHTML = steps.map((s,i) => {
+    const done    = stepIdx >= i && o.status !== 'ملغي';
+    const current = stepIdx === i && o.status !== 'ملغي';
+    return `<div class="step ${done?'done':''} ${current?'current':''}">
+      <div class="step-dot">${done?'✓':i+1}</div>
+      <div class="step-label">${s}</div>
     </div>`;
+  }).join('');
 }
 
-// Auto-search from URL
-const urlBill = new URLSearchParams(window.location.search).get('id');
-if (urlBill) {
-  document.getElementById('billInput').value = urlBill;
-  searchOrder();
-}
+boot();
 </script>
 </body>
 </html>
