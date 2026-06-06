@@ -154,6 +154,33 @@ body {
   cursor: pointer;
 }
 .product-card:hover { transform: translateY(-6px); box-shadow: var(--shadow); }
+
+/* Skeleton Loading */
+.skeleton-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow2);
+}
+.skeleton-img {
+  width: 100%; aspect-ratio: 3/4;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.skeleton-body { padding: 16px; }
+.skeleton-line {
+  height: 14px; border-radius: 6px; margin-bottom: 10px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.skeleton-line.short { width: 60%; }
+.skeleton-line.shorter { width: 40%; height: 12px; }
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 .product-img {
   width: 100%; aspect-ratio: 3/4;
   background: linear-gradient(145deg, var(--cream2), var(--border));
@@ -801,8 +828,28 @@ onAuthStateChanged(fbAuth, user => {
   }
 });
 
-// Load collection via REST API (no eval needed)
+// Load collection via REST API
 const DB_URL = 'https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app/bylubna/collection.json';
+
+// أظهر skeleton فوراً وأخفي loading screen
+function showSkeleton() {
+  const grid = document.getElementById('productsGrid');
+  if (!grid) return;
+  grid.innerHTML = Array(6).fill(`
+    <div class="skeleton-card">
+      <div class="skeleton-img"></div>
+      <div class="skeleton-body">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-line shorter"></div>
+      </div>
+    </div>`).join('');
+}
+
+showSkeleton();
+document.getElementById('loadingScreen').style.display = 'none';
+
+// حمّل البيانات الحقيقية في الخلفية
 fetch(DB_URL)
   .then(r => r.json())
   .then(data => {
@@ -816,16 +863,7 @@ fetch(DB_URL)
   .catch(e => {
     console.error('Load error:', e);
     renderDemoProducts();
-  })
-  .finally(() => {
-    document.getElementById('loadingScreen').style.display = 'none';
   });
-
-// Auto-hide loading after 3s
-setTimeout(() => {
-  const ls = document.getElementById('loadingScreen');
-  if (ls) ls.style.display = 'none';
-}, 3000);
 
 // ===== Auth Functions =====
 window.doLogin = async function() {
