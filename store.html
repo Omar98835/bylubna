@@ -1155,15 +1155,21 @@ function filterCollectionBy(filter, btn) {
 // ===== PRODUCT DETAIL =====
 function openProduct(p) {
   currentProduct = typeof p === 'string' ? JSON.parse(p) : p;
-  selectedColor  = currentProduct.colors[0] || '';
-  selectedSize   = currentProduct.sizes ? currentProduct.sizes[2] : 'M';
+  if (!currentProduct) return;
+  const colors = currentProduct.colors || [];
+  const sizes  = currentProduct.sizes  || [];
+  selectedColor = colors[0] || '';
+  selectedSize  = sizes[2]?.label || sizes[0]?.label || 'M';
 
   const colorOpts = (currentProduct.colors||[]).map(c => `
     <div class="color-option ${c===selectedColor?'selected':''}" style="background:${getColorHex(c)}"
       title="${c}" onclick="selectColor('${c}',this)"></div>`).join('');
 
-  const sizeOpts = (currentProduct.sizes||['S','M','L','XL']).map(s => `
-    <div class="size-option ${s===selectedSize?'selected':''}" onclick="selectSize('${s}',this)">${s}</div>`).join('');
+  const sizeOpts = (currentProduct.sizes||[]).map(s => {
+    const label = s.label || s;
+    const dims  = s.length ? ` ${s.length}×${s.width}` : '';
+    return `<div class="size-option ${label===selectedSize?'selected':''}" onclick="selectSize('${label}',this)">${label}${dims}</div>`;
+  }).join('') || '<div class="size-option selected" onclick="selectSize(\'M\',this)">M</div>';
 
   const imgHtml = currentProduct.img
     ? `<img src="${currentProduct.img}" alt="${currentProduct.name}">`
@@ -1203,7 +1209,10 @@ function addToCartFromDetail() {
 
 function quickAddCart(p) {
   const prod = typeof p === 'string' ? JSON.parse(p) : p;
-  addCartItem({ ...prod, selectedColor: prod.colors[0]||'', selectedSize:'M' });
+  if (!prod) return;
+  const colors = prod.colors || [];
+  const sizes  = prod.sizes  || [];
+  addCartItem({ ...prod, selectedColor: colors[0]||'', selectedSize: sizes[0]?.label||'M' });
 }
 
 // ===== CART =====
