@@ -613,7 +613,6 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
     <div class="modal-tabs">
       <button class="modal-tab active" onclick="switchAuthTab('login')" id="tabLogin">دخول</button>
       <button class="modal-tab" onclick="switchAuthTab('register')" id="tabRegister">حساب جديد</button>
-      <button class="modal-tab" onclick="switchAuthTab('phone')" id="tabPhone">رقم الهاتف</button>
     </div>
     <!-- Login -->
     <div id="authLoginForm">
@@ -655,22 +654,7 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
       <button class="btn-primary" id="registerBtn" onclick="doRegister()">إنشاء حساب</button>
       <div class="modal-error" id="regError"></div>
     </div>
-    <!-- Phone OTP -->
-    <div id="authPhoneForm" style="display:none">
-      <div class="form-group">
-        <label id="phoneLabel">رقم الهاتف</label>
-        <input type="tel" id="phoneInput" placeholder="98835935 أو +96898835935" dir="ltr">
-      </div>
-      <div id="otpSection" style="display:none">
-        <div class="form-group">
-          <label id="otpLabel">رمز التحقق</label>
-          <input type="text" id="otpInput" placeholder="123456" dir="ltr" maxlength="6" style="letter-spacing:8px;font-size:20px;text-align:center">
-        </div>
-      </div>
-      <div id="recaptchaContainer"></div>
-      <button class="btn-primary" id="phoneBtn" onclick="doPhoneAuth()">إرسال الرمز</button>
-      <div class="modal-error" id="phoneError"></div>
-    </div>
+    <!-- Phone form removed -->
   </div>
 </div>
 
@@ -1434,10 +1418,8 @@ function switchAuthTab(tab) {
   document.getElementById(`tab${tab.charAt(0).toUpperCase()+tab.slice(1)}`).classList.add('active');
   document.getElementById('authLoginForm').style.display    = tab==='login'    ? '' : 'none';
   document.getElementById('authRegisterForm').style.display = tab==='register' ? '' : 'none';
-  document.getElementById('authPhoneForm').style.display    = tab==='phone'    ? '' : 'none';
   document.getElementById('authError').textContent = '';
   document.getElementById('regError').textContent  = '';
-  document.getElementById('phoneError').textContent= '';
 }
 
 // ===== CHECKOUT =====
