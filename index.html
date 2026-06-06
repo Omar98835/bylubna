@@ -59,7 +59,15 @@
             const data = snap.val();
             if (data) {
               const prev = JSON.stringify({ orders: APP.orders, fabric: APP.fabric });
-              APP.orders        = data.orders        || APP.orders;
+              // تحويل orders من object إلى array
+              if (data.orders) {
+                const ordersObj = data.orders;
+                if (Array.isArray(ordersObj)) {
+                  APP.orders = ordersObj.filter(Boolean);
+                } else {
+                  APP.orders = Object.values(ordersObj).filter(Boolean);
+                }
+              }
               APP.fabric        = data.fabric        || APP.fabric;
               APP.sheilaFabric  = data.sheilaFabric  || APP.sheilaFabric;
               APP.abaTypes      = data.abaTypes      || APP.abaTypes;
@@ -1566,17 +1574,17 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 
     <!-- Tabs -->
     <div style="display:flex;gap:8px;margin-bottom:20px;background:var(--bg2);padding:6px;border-radius:12px;width:fit-content">
-      <button class="btn" id="tabReady" onclick="filterCollection('ready')"
-        style="background:var(--burgundy);color:#fff;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700">
+      <button class="btn" id="tabAll" onclick="filterCollection('all')"
+        style="background:var(--burgundy);color:#fff;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
+        كل الكولكشن
+      </button>
+      <button class="btn btn-outline" id="tabReady" onclick="filterCollection('ready')"
+        style="border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
         ✅ جاهزة للتسليم
       </button>
       <button class="btn btn-outline" id="tabTailor" onclick="filterCollection('tailor')"
         style="border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
         ✂️ تحتاج تفصيل
-      </button>
-      <button class="btn btn-outline" id="tabAll" onclick="filterCollection('all')"
-        style="border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
-        كل الكولكشن
       </button>
     </div>
 
@@ -2058,6 +2066,12 @@ function loadData() {
     if (saved) {
       const parsed = JSON.parse(saved);
       APP = { ...APP, ...parsed };
+      // تحويل orders من object إلى array إذا لزم
+      if (parsed.orders) {
+        APP.orders = Array.isArray(parsed.orders)
+          ? parsed.orders.filter(Boolean)
+          : Object.values(parsed.orders).filter(Boolean);
+      }
       APP.settings    = { ...APP.settings,    ...(parsed.settings    || {}) };
       APP.bank        = parsed.bank        || { balance: 0, transactions: [] };
       APP.packaging      = parsed.packaging      || { bags: 0, labels: 0, wrap: 0 };
@@ -3137,7 +3151,7 @@ function buildInvoiceHTML(o) {
         <div>
           <div class="total-label">الإجمالي الكلي</div>
           <div class="total-value">${((o.amount||0)*(o.qty||1)).toFixed(3)} ر.ع</div>
-          ${(o.deposit > 0) ? `
+          ${(o.deposit > 0 || (o.remaining > 0 && o.remaining < (o.amount*(o.qty||1)))) ? `
           <div style="margin-top:8px;font-size:12px;color:var(--success)">✅ مدفوع مقدماً: <strong>${(o.deposit||0).toFixed(3)} ر.ع</strong></div>
           <div style="font-size:13px;font-weight:700;color:${(o.remaining||0)<=0?'var(--success)':'var(--warning)'}">
             ${(o.remaining||0)<=0?'✅ تم السداد كاملاً':'⏳ المتبقي: '+(o.remaining||0).toFixed(3)+' ر.ع'}
@@ -3541,7 +3555,7 @@ function downloadInvoicePDF() {
       <span>الإجمالي الكلي</span>
       <span>${(o.amount * (o.qty||1)).toFixed(3)} ر.ع</span>
     </div>
-    ${(o.deposit > 0) ? `
+    ${(o.deposit > 0 || (o.remaining > 0 && o.remaining < (o.amount * (o.qty||1)))) ? `
     <div class="inv-total-row" style="color:var(--success,#4A7C59);background:#f0faf4">
       <span>✅ المبلغ المدفوع مقدماً</span>
       <span>${(o.deposit||0).toFixed(3)} ر.ع</span>
@@ -5157,7 +5171,7 @@ function doLogin() {
 // ===== COLLECTION =====
 let colColors = [];
 let colSizes  = [];
-let colFilter = 'ready';
+let colFilter = 'all';
 
 function renderCollectionPage() {
   filterCollection(colFilter);
