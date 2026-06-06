@@ -784,18 +784,25 @@ onAuthStateChanged(fbAuth, user => {
   if (user) loadUserOrders(user.uid);
 });
 
-// Load store data from Realtime Database
-const storeRef = ref(rtDB, 'bylubna');
-rtOnValue(storeRef, snap => {
-  const data = snap.val();
-  if (data && data.collection && data.collection.length) {
-    renderFilters(data);
-    renderProducts(data.collection);
-  } else {
+// Load collection via REST API (no eval needed)
+const DB_URL = 'https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app/bylubna/collection.json';
+fetch(DB_URL)
+  .then(r => r.json())
+  .then(data => {
+    if (data && Array.isArray(data) && data.length) {
+      renderFilters({ collection: data });
+      renderProducts(data);
+    } else {
+      renderDemoProducts();
+    }
+  })
+  .catch(e => {
+    console.error('Load error:', e);
     renderDemoProducts();
-  }
-  document.getElementById('loadingScreen').style.display = 'none';
-});
+  })
+  .finally(() => {
+    document.getElementById('loadingScreen').style.display = 'none';
+  });
 
 // Auto-hide loading after 3s
 setTimeout(() => {
