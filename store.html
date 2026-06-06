@@ -750,6 +750,8 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, collection, addDoc, onSnapshot, query, where, getDocs, setDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getDatabase, ref, onValue as rtOnValue }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signOut as fbSignOut, onAuthStateChanged, updateProfile,
   GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber }
@@ -759,6 +761,7 @@ const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
   authDomain: "bylubna-f31a4.firebaseapp.com",
   projectId: "bylubna-f31a4",
+  databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
   storageBucket: "bylubna-f31a4.firebasestorage.app",
   messagingSenderId: "331210998611",
   appId: "1:331210998611:web:e1c639a66036242fa917a6"
@@ -769,6 +772,7 @@ try { fbApp = initializeApp(FIREBASE_CONFIG, 'bylubna-store'); }
 catch(e) { fbApp = initializeApp(FIREBASE_CONFIG); }
 fsDB   = getFirestore(fbApp);
 fbAuth = getAuth(fbApp);
+const rtDB = getDatabase(fbApp);
 
 window.__storeAuth = fbAuth;
 window.__fsDB      = fsDB;
@@ -780,28 +784,18 @@ onAuthStateChanged(fbAuth, user => {
   if (user) loadUserOrders(user.uid);
 });
 
-// Load store data from Firestore
-async function loadStoreData() {
-  try {
-    const snap = await getDocs(collection(fsDB, 'bylubna_data'));
-    let data = {};
-    snap.forEach(d => { data = { ...data, ...d.data() }; });
-    if (data.collection) {
-      renderFilters(data);
-      renderProducts(data.collection || []);
-    } else {
-      renderDemoProducts();
-    }
-  } catch(e) {
-    console.error('Firestore load error:', e);
+// Load store data from Realtime Database
+const storeRef = ref(rtDB, 'bylubna');
+rtOnValue(storeRef, snap => {
+  const data = snap.val();
+  if (data && data.collection && data.collection.length) {
+    renderFilters(data);
+    renderProducts(data.collection);
+  } else {
     renderDemoProducts();
   }
   document.getElementById('loadingScreen').style.display = 'none';
-}
-
-// Also try to read from admin's Realtime DB path via Firestore mirror
-// For now load collection from Firestore
-loadStoreData();
+});
 
 // Auto-hide loading after 3s
 setTimeout(() => {
@@ -985,6 +979,7 @@ const FIREBASE_CONFIG = {
   authDomain: "bylubna-f31a4.firebaseapp.com",
   databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "bylubna-f31a4",
+  databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
   storageBucket: "bylubna-f31a4.firebasestorage.app",
   messagingSenderId: "331210998611",
   appId: "1:331210998611:web:e1c639a66036242fa917a6"
