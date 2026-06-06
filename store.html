@@ -724,6 +724,32 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
         <label id="coNotesLabel">ملاحظات (اختياري)</label>
         <textarea id="coNotes" rows="2" placeholder="أي طلبات خاصة..."></textarea>
       </div>
+
+      <!-- قسم المقاسات — يظهر فقط لطلبات التفصيل -->
+      <div id="measurementsSection" style="display:none">
+        <div style="background:var(--cream2);border-radius:12px;padding:16px;margin-bottom:16px;border:1.5px solid var(--border)">
+          <div style="font-size:14px;font-weight:700;color:var(--burgundy);margin-bottom:12px">✂️ مقاساتك (بالسنتيمتر)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin:0">
+              <label style="font-size:12px">الطول الكلي</label>
+              <input type="number" id="mHeight" placeholder="مثال: 155" min="100" max="200"
+                style="padding:10px;border:1.5px solid var(--border);border-radius:8px;width:100%;font-size:14px;text-align:center">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:12px">العرض (الكتفين)</label>
+              <input type="number" id="mWidth" placeholder="مثال: 45" min="30" max="80"
+                style="padding:10px;border:1.5px solid var(--border);border-radius:8px;width:100%;font-size:14px;text-align:center">
+            </div>
+            <div class="form-group" style="margin:0;grid-column:1/-1">
+              <label style="font-size:12px">طول الكم (من نصف الرقبة)</label>
+              <input type="number" id="mSleeve" placeholder="مثال: 75" min="40" max="100"
+                style="padding:10px;border:1.5px solid var(--border);border-radius:8px;width:100%;font-size:14px;text-align:center">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">جميع المقاسات بالسنتيمتر</div>
+        </div>
+      </div>
+
       <button class="btn-primary" onclick="goCheckoutStep(2)" id="nextStep1">التالي ←</button>
     </div>
 
@@ -750,7 +776,7 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, collection, addDoc, onSnapshot, query, where, getDocs, setDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getDatabase, ref, onValue as rtOnValue }
+import { getDatabase, ref, onValue as rtOnValue, push }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signOut as fbSignOut, onAuthStateChanged, updateProfile,
@@ -776,6 +802,8 @@ const rtDB = getDatabase(fbApp);
 
 window.__storeAuth = fbAuth;
 window.__fsDB      = fsDB;
+window.__fbRef     = (path) => ref(rtDB, path);
+window.__fbPush    = (r, data) => push(r, data);
 
 // Auth state
 onAuthStateChanged(fbAuth, user => {
@@ -957,26 +985,63 @@ window.placeOrder = async function() {
   const address = document.getElementById('coAddress').value.trim();
   const notes   = document.getElementById('coNotes').value.trim();
   if (!name || !phone) { showToast('⚠️ أدخلي الاسم والهاتف', 'error'); goCheckoutStep(1); return; }
+
+  // تحقق من المقاسات إذا في تفصيل
+  const hasTailor = cart.some(i => i.category === 'tailor');
+  let measurements = null;
+  if (hasTailor) {
+    const h = document.getElementById('mHeight')?.value;
+    const w = document.getElementById('mWidth')?.value;
+    const s = document.getElementById('mSleeve')?.value;
+    if (!h || !w || !s) { showToast('⚠️ أدخلي جميع المقاسات', 'error'); return; }
+    measurements = { height: h+'سم', width: w+'سم', sleeve: s+'سم' };
+  }
+
   const btn = document.getElementById('placeOrderBtn');
   btn.disabled = true; btn.textContent = '⏳';
   const total    = cart.reduce((s,i)=>s+(i.price||0)*(i.qty||1),0);
   const totalQty = cart.reduce((s,i)=>s+(i.qty||1),0);
   const bill     = 'STO-'+Date.now().toString().slice(-6);
   const today    = new Date().toISOString().split('T')[0];
-  const items    = cart.map(i=>({type:i.name,color:i.selectedColor||'',size:i.selectedSize||'',qty:i.qty||1,price:i.price||0}));
+  const items    = cart.map(i=>({
+    type:i.name, color:i.selectedColor||'',
+    size:i.selectedSize||'', qty:i.qty||1,
+    price:i.price||0, category:i.category||'ready'
+  }));
   const orderData = {
-    bill, name, phone, address, notes, orderDate:today,
-    items, amount:totalQty?total/totalQty:0, qty:totalQty,
-    status:'جديد', source:'store',
-    customerId:window.__storeUser?.uid||'',
-    createdAt:new Date().toISOString()
+    id: 'ord-'+Date.now(),
+    bill, name, phone, address, notes,
+    orderDate:today, deliverDate:'',
+    color: items[0]?.color||'',
+    type: items.map(i=>i.type).join(' + '),
+    qty: totalQty,
+    amount: totalQty?total/totalQty:0,
+    originalAmount: totalQty?total/totalQty:0,
+    items,
+    measurements: measurements||null,
+    tailor:0, fabric:0, sheila:0, extra:0, profit:0,
+    deposit:0, remaining:total,
+    discountCode:'', discountPct:0, discountAmt:0,
+    status: hasTailor ? 'قيد التفصيل' : 'جديد',
+    remark: 'طلب متجر'+(hasTailor?' - تفصيل':'')+(notes?': '+notes:''),
+    source:'store',
+    customerId: window.__storeUser?.uid||'',
+    createdAt: new Date().toISOString(),
+    month: new Date().toLocaleString('en-US',{month:'long'}),
+    year: new Date().getFullYear()
   };
   try {
+    // حفظ في Firestore
     await addDoc(collection(fsDB, 'store_orders'), orderData);
+    // حفظ في Realtime Database ليظهر في لوحة الإدارة
+    const rtRef = window.__fbRef ? window.__fbRef('bylubna/orders') : null;
+    if (rtRef) await window.__fbPush(rtRef, orderData);
     document.getElementById('successBill').textContent = 'رقم الطلب: '+bill;
     goCheckoutStep(3);
+    clearCart();
     showToast('🎉 تم الطلب!', 'success');
   } catch(e) {
+    console.error(e);
     showToast('❌ حدث خطأ، حاول مرة أخرى', 'error');
   }
   btn.disabled = false; btn.textContent = 'تأكيد الطلب';
@@ -1353,6 +1418,12 @@ function switchAuthTab(tab) {
 function openCheckout() {
   if (!cart.length) return;
   checkoutStep = 1;
+
+  // تحقق إذا في عبايات تفصيل في السلة
+  const hasTailor = cart.some(i => i.category === 'tailor');
+  const msSection = document.getElementById('measurementsSection');
+  if (msSection) msSection.style.display = hasTailor ? '' : 'none';
+
   // Prefill if logged in
   if (window.__storeUser) {
     requestAnimationFrame(() => {
