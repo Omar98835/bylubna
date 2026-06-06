@@ -138,28 +138,8 @@ body { font-family:'Tajawal',sans-serif; background:#FAF6F0; color:#2C1A12; min-
   <div id="result"></div>
 </div>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDBo7Y74T5ELQ1UCSNm9TyE7PajuwtJTpA",
-  authDomain: "bylubna-f31a4.firebaseapp.com",
-  databaseURL: "https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "bylubna-f31a4",
-  storageBucket: "bylubna-f31a4.firebasestorage.app",
-  messagingSenderId: "331210998611",
-  appId: "1:331210998611:web:e1c639a66036242fa917a6"
-};
-
-let fbDB;
-try {
-  const app = initializeApp(FIREBASE_CONFIG, 'bylubna-track');
-  fbDB = getDatabase(app);
-} catch(e) {
-  const app = initializeApp(FIREBASE_CONFIG);
-  fbDB = getDatabase(app);
-}
+<script>
+const DB_URL = 'https://bylubna-f31a4-default-rtdb.asia-southeast1.firebasedatabase.app/bylubna/orders.json';
 
 window.searchOrder = async function() {
   const bill = document.getElementById('billInput').value.trim().toUpperCase();
@@ -168,17 +148,18 @@ window.searchOrder = async function() {
   resultEl.innerHTML = '<div class="loading">⏳ جاري البحث...</div>';
 
   try {
-    const snap = await get(ref(fbDB, 'bylubna/orders'));
-    if (!snap.exists()) { showNotFound(bill); return; }
+    const res = await fetch(DB_URL);
+    const raw = await res.json();
+    if (!raw) { showNotFound(bill); return; }
 
-    const raw = snap.val();
     const orders = Array.isArray(raw) ? raw.filter(Boolean) : Object.values(raw).filter(Boolean);
     const order = orders.find(o => o && (o.bill||'').toUpperCase() === bill);
 
     if (!order) { showNotFound(bill); return; }
     showOrder(order);
   } catch(e) {
-    resultEl.innerHTML = '<div class="not-found"><div class="icon">⚠️</div><h3>حدث خطأ</h3><p>حاول مرة أخرى</p></div>';
+    console.error(e);
+    resultEl.innerHTML = '<div class="result-card not-found"><div class="icon">⚠️</div><h3>حدث خطأ</h3><p>حاول مرة أخرى</p></div>';
   }
 };
 
@@ -212,8 +193,7 @@ function showOrder(o) {
       active: o.status === 'جاهز للتسليم' },
     { label:'تم التسليم', icon:'✅',
       done: o.status === 'تم التسليم',
-      active: false,
-      date: o.deliverDate||'' },
+      active: false, date: o.deliverDate||'' },
   ];
 
   const items = o.items || [{ type: o.type||'عباية', color: o.color||'', qty: o.qty||1, price: o.amount||0 }];
@@ -226,13 +206,14 @@ function showOrder(o) {
       <div class="m-row"><span>طول الكم من نصف الرقبة</span><strong>${o.measurements.sleeve||'-'}</strong></div>
     </div>` : '';
 
+  const total = items.reduce((sum,i) => sum + (i.price||0)*(i.qty||1), 0);
+
   document.getElementById('result').innerHTML = `
     <div class="result-card">
       <div class="result-header">
         <div class="bill-no">📋 ${o.bill}</div>
         <span class="status-badge ${s.cls}">${s.icon} ${s.label}</span>
       </div>
-
       <div class="info-row">
         <span class="info-label">الاسم</span>
         <span class="info-value">${o.name||'-'}</span>
@@ -247,13 +228,12 @@ function showOrder(o) {
       </div>` : ''}
       <div class="info-row">
         <span class="info-label">الإجمالي</span>
-        <span class="info-value" style="color:#7B1B42">${((o.amount||0)*(o.qty||1)).toFixed(3)} ر.ع</span>
+        <span class="info-value" style="color:#7B1B42">${total.toFixed(3)} ر.ع</span>
       </div>
-      ${o.remaining > 0 ? `<div class="info-row">
+      ${(o.remaining||0) > 0 ? `<div class="info-row">
         <span class="info-label">المتبقي</span>
         <span class="info-value" style="color:#E67E22">${(o.remaining||0).toFixed(3)} ر.ع</span>
       </div>` : ''}
-
       <div class="items-section">
         <div class="items-title">🧕 العبايات</div>
         ${items.map(item => `
@@ -261,14 +241,12 @@ function showOrder(o) {
             <div class="item-icon">🧕</div>
             <div class="item-info">
               <div class="item-name">${item.type||'عباية'}</div>
-              <div class="item-meta">${[item.color, item.size, item.qty>1?'الكمية: '+item.qty:''].filter(Boolean).join(' • ')}</div>
+              <div class="item-meta">${[item.color, item.size, (item.qty||1)>1?'الكمية: '+item.qty:''].filter(Boolean).join(' • ')}</div>
             </div>
             <div class="item-price">${((item.price||0)*(item.qty||1)).toFixed(3)} ر.ع</div>
           </div>`).join('')}
       </div>
-
       ${measureHtml}
-
       <div class="timeline">
         <div class="timeline-title">📍 مراحل الطلب</div>
         ${steps.map(step => `
