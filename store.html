@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -1270,8 +1270,11 @@ function openProduct(p) {
       <div class="color-picker" id="colorPicker">${colorOpts}</div>` : ''}
       ${sizes.length ? `<div class="detail-label">${t('sizeLabel')}</div>
       <div class="size-picker" id="sizePicker">${sizeOpts}</div>` : ''}
-      ${descHtml}
-    </div>`;
+    </div>
+    ${currentProduct.desc ? `<div style="width:100%;background:#F3EDE4;border-radius:10px;padding:14px;margin-top:12px;font-size:13px;color:#6B4C3B;line-height:1.8;border-right:3px solid var(--burgundy)">
+      <div style="font-size:12px;font-weight:700;color:var(--burgundy);margin-bottom:6px">📝 تفاصيل العباية</div>
+      ${currentProduct.desc}
+    </div>` : ''}`;
 
   openModal('productModal');
 }
