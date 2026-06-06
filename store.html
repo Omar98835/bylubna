@@ -985,15 +985,7 @@ const FIREBASE_CONFIG = {
   appId: "1:331210998611:web:e1c639a66036242fa917a6"
 };
 
-firebase.initializeApp(FIREBASE_CONFIG);
-const fbDB   = firebase.database();
-const fbAuth = firebase.auth();
-
-window.__storeDB   = fbDB;
-window.__storeAuth = fbAuth;
-window.__fbPush    = (ref, data) => ref.push(data);
-window.__fbSet     = (ref, data) => ref.set(data);
-window.__fbRef     = (path) => fbDB.ref(path);
+// Firebase initialized via modular SDK above
 
 // Auth state
 fbAuth.onAuthStateChanged(user => {
