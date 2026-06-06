@@ -764,7 +764,7 @@ import { getDatabase, ref, onValue as rtOnValue, push }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signOut as fbSignOut, onAuthStateChanged, updateProfile,
-  GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber }
+  GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, RecaptchaVerifier, signInWithPhoneNumber }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const FIREBASE_CONFIG = {
@@ -788,6 +788,17 @@ window.__storeAuth = fbAuth;
 window.__fsDB      = fsDB;
 window.__fbRef     = (path) => ref(rtDB, path);
 window.__fbPush    = (r, data) => push(r, data);
+
+// معالجة نتيجة الـ redirect بعد العودة من Google
+getRedirectResult(fbAuth).then(result => {
+  if (result && result.user) {
+    closeModal('authModal');
+    showToast('✅ تم الدخول بـ Google!', 'success');
+    loadCartFromCloud();
+  }
+}).catch(e => {
+  if (e.code !== 'auth/no-current-user') console.error(e);
+});
 
 // Auth state
 onAuthStateChanged(fbAuth, user => {
@@ -875,14 +886,20 @@ window.doGoogleSignIn = async function() {
   try {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    await signInWithPopup(fbAuth, provider);
-    closeModal('authModal');
-    showToast('✅ تم الدخول بـ Google!', 'success');
-    loadCartFromCloud();
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      await signInWithRedirect(fbAuth, provider);
+    } else {
+      await signInWithPopup(fbAuth, provider);
+      closeModal('authModal');
+      showToast('✅ تم الدخول بـ Google!', 'success');
+      loadCartFromCloud();
+    }
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user')
       showToast('خطأ في تسجيل الدخول بـ Google', 'error');
   }
+}
 };
 
 window.doPhoneAuth = async function() {
