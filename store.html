@@ -487,6 +487,7 @@ footer strong { color: var(--gold); font-family:'Playfair Display',serif; }
 .page { display: none; }
 .page.active { display: block; }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -764,7 +765,7 @@ import { getDatabase, ref, onValue as rtOnValue, push }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signOut as fbSignOut, onAuthStateChanged, updateProfile,
-  GoogleAuthProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber }
+  RecaptchaVerifier, signInWithPhoneNumber, signInWithCredential, GoogleAuthProvider }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const FIREBASE_CONFIG = {
@@ -872,20 +873,48 @@ window.doRegister = async function() {
   btn.disabled = false; btn.textContent = 'إنشاء حساب';
 };
 
-window.doGoogleSignIn = async function() {
-  try {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    const result = await signInWithPopup(fbAuth, provider);
-    if (result && result.user) {
-      closeModal('authModal');
-      showToast('✅ تم الدخول بـ Google!', 'success');
-      loadCartFromCloud();
-    }
-  } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user')
-      showToast('خطأ في تسجيل الدخول بـ Google', 'error');
+// Google Identity Services
+window.__googleClientReady = false;
+window.__googleTokenClient = null;
+
+function initGoogleIdentity() {
+  if (!window.google || !window.google.accounts) {
+    setTimeout(initGoogleIdentity, 300);
+    return;
   }
+  window.__googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+    client_id: '331210998611-s7rb83b9qq09e3g46l9ueu6sbvlga206.apps.googleusercontent.com',
+    scope: 'email profile',
+    callback: async (tokenResponse) => {
+      if (tokenResponse.error) {
+        showToast('خطأ في تسجيل الدخول بـ Google', 'error');
+        return;
+      }
+      try {
+        const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
+        const result = await signInWithCredential(fbAuth, credential);
+        if (result && result.user) {
+          closeModal('authModal');
+          showToast('✅ تم الدخول بـ Google!', 'success');
+          loadCartFromCloud();
+        }
+      } catch(e) {
+        showToast('خطأ في تسجيل الدخول بـ Google', 'error');
+        console.error(e);
+      }
+    }
+  });
+  window.__googleClientReady = true;
+}
+initGoogleIdentity();
+
+window.doGoogleSignIn = function() {
+  if (!window.__googleClientReady || !window.__googleTokenClient) {
+    showToast('جاري التحميل، حاولي مرة ثانية', 'error');
+    setTimeout(initGoogleIdentity, 100);
+    return;
+  }
+  window.__googleTokenClient.requestAccessToken({ prompt: 'select_account' });
 };
 
 window.doPhoneAuth = async function() {
