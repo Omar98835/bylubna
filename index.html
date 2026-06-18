@@ -29,7 +29,7 @@
     signOut,
     onAuthStateChanged
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-  import { getMessaging, getToken, onMessage }
+  import { getMessaging, onMessage }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
 
   window.__firebaseReady = false;
@@ -5452,47 +5452,20 @@ function updateNotifStatus() {
 
 // ===== PUSH NOTIFICATIONS (FCM) =====
 
-// VAPID Key من Firebase Console > Project Settings > Cloud Messaging
-// *** يجب استبداله بالـ VAPID Key الحقيقي من Firebase Console ***
-const VAPID_KEY = 'YOUR_VAPID_KEY_FROM_FIREBASE_CONSOLE';
-
+// ===== PUSH NOTIFICATIONS (محلي فقط) =====
 async function initPushNotifications() {
   try {
-    // تسجيل Service Worker
-    if ('serviceWorker' in navigator) {
-      await navigator.serviceWorker.register('/bylubna/firebase-messaging-sw.js');
-      console.log('✅ Service Worker مسجّل');
-    }
-
-    // طلب إذن الإشعارات
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      showToast('⚠️ الإشعارات موقوفة — فعّليها من إعدادات الهاتف', 'warning');
-      return;
-    }
-
-    if (!window.__fbMessaging) {
-      showToast('⚠️ يجب الاتصال بـ Firebase أولاً', 'warning');
-      return;
-    }
-
-    // الحصول على FCM Token
-    const { getToken } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
-    const token = await getToken(window.__fbMessaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: await navigator.serviceWorker.ready
-    });
-
-    if (token) {
-      // حفظ التوكن في Firebase لاستخدامه لاحقاً
-      APP.settings.fcmToken = token;
+    if (permission === 'granted') {
+      APP.settings.notifEnabled = true;
       saveData();
       showToast('✅ الإشعارات مفعّلة على هذا الجهاز!', 'success');
-      console.log('FCM Token:', token);
+    } else {
+      showToast('⚠️ لم يتم السماح بالإشعارات — تحققي من إعدادات الهاتف', 'warning');
     }
+    updateNotifStatus();
   } catch(e) {
-    console.error('خطأ في تفعيل الإشعارات:', e);
-    showToast('❌ تعذّر تفعيل الإشعارات: ' + e.message, 'error');
+    showToast('❌ خطأ: ' + e.message, 'error');
   }
 }
 
