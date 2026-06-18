@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>By Lubna — لوحة الإدارة</title>
 
+<!-- OneSignal Push Notifications -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+
 <!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,7 +32,7 @@
     signOut,
     onAuthStateChanged
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-  import { getMessaging, getToken, onMessage }
+  import { getMessaging, onMessage }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
 
   window.__firebaseReady = false;
@@ -5383,108 +5386,56 @@ function updateNotifStatus() {
   }
 }
 
-// ===== PUSH NOTIFICATIONS (FCM) =====
+// ===== PUSH NOTIFICATIONS (OneSignal) =====
+const ONESIGNAL_APP_ID = '5abfc44a-1297-463e-bc51-73ba03518689';
 
-// VAPID Key من Firebase Console > Project Settings > Cloud Messaging
-// *** يجب استبداله بالـ VAPID Key الحقيقي من Firebase Console ***
-const VAPID_KEY = 'BC0PenQ5rsdceeS4KaG5NRnzKhz9XQCeAIkNhKBOMe9oRnP6Y6wcZRbqzfJOLxLpIAgz5uIkxz0-UGGfGjNc0Os';
+// تهيئة OneSignal
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(async function(OneSignal) {
+  await OneSignal.init({
+    appId: ONESIGNAL_APP_ID,
+    safari_web_id: 'web.onesignal.auto.bylubna',
+    notifyButton: { enable: false },
+    allowLocalhostAsSecureOrigin: false,
+  });
+});
 
 async function initPushNotifications() {
   try {
-    // تسجيل Service Worker
-    if ('serviceWorker' in navigator) {
-      await navigator.serviceWorker.register('/bylubna/firebase-messaging-sw.js');
-      console.log('✅ Service Worker مسجّل');
-    }
-
-    // طلب إذن الإشعارات
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      showToast('⚠️ الإشعارات موقوفة — فعّليها من إعدادات الهاتف', 'warning');
+    if (typeof OneSignal === 'undefined') {
+      showToast('⚠️ OneSignal غير محمّل بعد، انتظري ثانية', 'warning');
       return;
     }
-
-    if (!window.__fbMessaging) {
-      showToast('⚠️ يجب الاتصال بـ Firebase أولاً', 'warning');
-      return;
-    }
-
-    // الحصول على FCM Token
-    const { getToken } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
-    const token = await getToken(window.__fbMessaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: await navigator.serviceWorker.ready
-    });
-
-    if (token) {
-      // حفظ التوكن في Firebase لاستخدامه لاحقاً
-      APP.settings.fcmToken = token;
-      saveData();
+    await OneSignal.Notifications.requestPermission();
+    const isEnabled = await OneSignal.Notifications.permission;
+    if (isEnabled) {
       showToast('✅ الإشعارات مفعّلة على هذا الجهاز!', 'success');
-      console.log('FCM Token:', token);
+      APP.settings.notifEnabled = true;
+      saveData();
+    } else {
+      showToast('⚠️ لم يتم السماح بالإشعارات', 'warning');
     }
+    updateNotifStatus();
   } catch(e) {
-    console.error('خطأ في تفعيل الإشعارات:', e);
-    showToast('❌ تعذّر تفعيل الإشعارات: ' + e.message, 'error');
+    showToast('❌ خطأ: ' + e.message, 'error');
   }
 }
 
-// إرسال إشعار محلي (يعمل وهو التطبيق مفتوح)
+// إرسال إشعار محلي عند فتح التطبيق
 function sendLocalNotification(title, body, tag = 'bylubna') {
   if (Notification.permission !== 'granted') return;
   try {
-    new Notification(title, {
-      body,
-      icon: '/bylubna/icons/icon-192.png',
-      badge: '/bylubna/icons/icon-192.png',
-      dir: 'rtl',
-      lang: 'ar',
-      tag,
-      vibrate: [200, 100, 200]
-    });
-  } catch(e) {
-    // iOS Safari لا يدعم new Notification مباشرة — يعتمد على SW
     navigator.serviceWorker?.ready.then(sw => {
-      sw.showNotification(title, { body, icon: '/bylubna/icons/icon-192.png', dir: 'rtl', tag });
+      sw.showNotification(title, {
+        body, icon: '/bylubna/icon-192.png',
+        dir: 'rtl', lang: 'ar', tag,
+        vibrate: [200, 100, 200]
+      });
     });
-  }
+  } catch(e) { console.log('Notification error:', e); }
 }
 
-// ===== تحقق يومي من مواعيد التسليم وحالة المخزون =====
-function runDailyChecks() {
-  const today = new Date().toISOString().split('T')[0];
-
-  // 1. طلبات موعد تسليمها اليوم
-  const dueToday = (APP.orders || []).filter(o =>
-    o.deliverDate === today && o.status !== 'تم التسليم' && o.status !== 'ملغي'
-  );
-  if (dueToday.length > 0) {
-    const names = dueToday.map(o => o.name || o.bill).join('، ');
-    sendLocalNotification(
-      `📦 ${dueToday.length} طلب موعد تسليمها اليوم`,
-      names,
-      'delivery-today'
-    );
-  }
-
-  // 2. نقص المخزون
-  const allFabric = [
-    ...(APP.fabric || []).map(f => ({ ...f, _label: 'قماش عباية' })),
-    ...(APP.sheilaFabric || []).map(f => ({ ...f, _label: 'قماش شيلة' })),
-    ...(APP.batan || []).map(f => ({ ...f, _label: 'بطان' }))
-  ];
-  const lowStock = allFabric.filter(f => f.meters < (f.minAlert || 6));
-  if (lowStock.length > 0) {
-    const items = lowStock.map(f => `${f.color} (${f.meters}م)`).join('، ');
-    sendLocalNotification(
-      `⚠️ تنبيه نقص مخزون — ${lowStock.length} صنف`,
-      items,
-      'low-stock'
-    );
-  }
-}
-
-// إشعار طلب جديد من المتجر (يُستدعى من onValue Firebase)
+// إشعار طلب جديد من المتجر
 function notifyNewStoreOrder(orderName, orderBill) {
   sendLocalNotification(
     '🛍️ طلب جديد من المتجر!',
@@ -5492,6 +5443,34 @@ function notifyNewStoreOrder(orderName, orderBill) {
     'new-order'
   );
   showToast(`🛍️ طلب جديد: ${orderName || orderBill}`, 'success');
+}
+
+// ===== تحقق يومي =====
+function runDailyChecks() {
+  const today = new Date().toISOString().split('T')[0];
+  const dueToday = (APP.orders||[]).filter(o =>
+    o.deliverDate === today && o.status !== 'تم التسليم' && o.status !== 'ملغي'
+  );
+  if (dueToday.length > 0) {
+    sendLocalNotification(
+      `📦 ${dueToday.length} طلب موعد تسليمها اليوم`,
+      dueToday.map(o => o.name || o.bill).join('، '),
+      'delivery-today'
+    );
+  }
+  const allFabric = [
+    ...(APP.fabric||[]).map(f=>({...f,_l:'قماش'})),
+    ...(APP.sheilaFabric||[]).map(f=>({...f,_l:'شيلة'})),
+    ...(APP.batan||[]).map(f=>({...f,_l:'بطان'}))
+  ];
+  const lowStock = allFabric.filter(f => f.meters < (f.minAlert||6));
+  if (lowStock.length > 0) {
+    sendLocalNotification(
+      `⚠️ نقص مخزون — ${lowStock.length} صنف`,
+      lowStock.map(f=>`${f.color} (${f.meters}م)`).join('، '),
+      'low-stock'
+    );
+  }
 }
 
 // ===== INIT =====
