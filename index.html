@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>By Lubna — لوحة الإدارة</title>
 
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="By Lubna">
+<meta name="theme-color" content="#7B1B42">
+
 <!-- CDN Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -22,6 +29,8 @@
     signOut,
     onAuthStateChanged
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getMessaging, getToken, onMessage }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
 
   window.__firebaseReady = false;
   window.__fbDB  = null;
@@ -46,6 +55,24 @@
       window.__fbDB   = getDatabase(app);
       window.__fbAuth = getAuth(app);
       window.__fbRef  = ref(window.__fbDB, 'bylubna');
+
+      // تهيئة FCM للإشعارات
+      try {
+        const messaging = getMessaging(app);
+        window.__fbMessaging = messaging;
+
+        // استقبال الإشعارات وهو التطبيق مفتوح
+        onMessage(messaging, payload => {
+          const { title, body } = payload.notification || {};
+          showToast(`🔔 ${title}: ${body}`, 'info');
+          // عرض إشعار نظام أيضاً
+          if (Notification.permission === 'granted') {
+            new Notification(title || 'By Lubna', {
+              body, icon: '/bylubna/icons/icon-192.png', dir: 'rtl'
+            });
+          }
+        });
+      } catch(e) { console.log('FCM غير متاح:', e.message); }
 
       // Auth state listener
       onAuthStateChanged(window.__fbAuth, (user) => {
@@ -83,6 +110,19 @@
               if (data.packagingLog) APP.packagingLog = data.packagingLog;
               if (data.suppliers)    APP.suppliers    = data.suppliers;
               if (JSON.stringify({ orders: APP.orders, fabric: APP.fabric }) !== prev) {
+                // كشف طلبات جديدة من المتجر
+                if (Notification.permission === 'granted') {
+                  try {
+                    const prevOrders = JSON.parse(prev).orders || [];
+                    const newOrders  = APP.orders.filter(o =>
+                      !prevOrders.find(p => p.id === o.id) && o.fromStore
+                    );
+                    newOrders.forEach(o => {
+                      if (typeof notifyNewStoreOrder === 'function')
+                        notifyNewStoreOrder(o.name, o.bill);
+                    });
+                  } catch(e) {}
+                }
                 renderDashboard();
                 if (document.getElementById('page-orders').classList.contains('active'))
                   renderOrdersTable();
@@ -1800,6 +1840,63 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
     </div>
 
     <div class="settings-section">
+    <!-- ===== إشعارات الهاتف ===== -->
+    <div class="settings-section">
+      <div class="settings-title">🔔 إشعارات الهاتف</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">فعّلي الإشعارات لتصلك تنبيهات على هاتفك حتى لو التطبيق مغلق</p>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px">
+        <div style="display:grid;gap:10px">
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+            <span style="font-size:20px">🛍️</span>
+            <div>
+              <div style="font-weight:600">طلب جديد من المتجر</div>
+              <div style="font-size:12px;color:var(--text-muted)">إشعار فوري عند وصول طلب جديد</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+            <span style="font-size:20px">⚠️</span>
+            <div>
+              <div style="font-weight:600">نقص المخزون</div>
+              <div style="font-size:12px;color:var(--text-muted)">عندما ينزل القماش عن الحد الأدنى</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+            <span style="font-size:20px">📦</span>
+            <div>
+              <div style="font-weight:600">موعد تسليم اليوم</div>
+              <div style="font-size:12px;color:var(--text-muted)">تذكير بالطلبات المستحقة اليوم</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div id="notifStatus" style="font-size:13px;margin-bottom:12px;padding:10px 14px;border-radius:8px;background:var(--bg2)">
+        جاري التحقق...
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="enableNotifications()">
+          🔔 تفعيل الإشعارات
+        </button>
+        <button class="btn btn-outline" onclick="testNotification()">
+          🧪 تجربة إشعار
+        </button>
+        <button class="btn btn-outline btn-sm" id="pwaInstallBtn" style="display:none" onclick="installPWA()">
+          📲 تثبيت التطبيق
+        </button>
+      </div>
+
+      <div style="margin-top:14px;padding:12px;background:#fff8e1;border:1px solid #f0c040;border-radius:8px;font-size:12px;color:#7a6000;line-height:1.8">
+        <strong>ملاحظة للآيفون:</strong><br>
+        ١. افتحي الموقع من <strong>Safari</strong><br>
+        ٢. اضغطي زر المشاركة ← <strong>"إضافة إلى الشاشة الرئيسية"</strong><br>
+        ٣. افتحي التطبيق من الأيقونة الجديدة<br>
+        ٤. اضغطي "تفعيل الإشعارات" — يتطلب <strong>iOS 16.4+</strong>
+      </div>
+    </div>
+
+    <!-- ===== حماية PIN ===== -->
       <div class="settings-title">🔒 حماية PIN</div>
       <div class="flex gap-12 items-center flex-wrap">
         <div>
@@ -2164,7 +2261,7 @@ function goTo(page) {
   if (page === 'collection') renderCollectionPage();
   if (page === 'forecast') renderForecast();
   if (page === 'alerts') renderAlerts();
-  if (page === 'settings') loadSettings();
+  if (page === 'settings') { loadSettings(); updateNotifStatus(); }
 
   // Close sidebar on mobile
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
@@ -2797,15 +2894,15 @@ function renderAbaItems() {
       <div style="display:flex;align-items:center;gap:10px;background:var(--card);border-radius:8px;padding:8px 12px;margin-bottom:8px">
         <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">🪡 بطان؟</span>
         <select style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
-          onchange="abaItems[${i}].batanId=this.value;abaItems[${i}].batanMeters=0;renderAbaItems()">
+          onchange="abaItems[${i}].batanId=this.value;updateItemsTotal()">
           ${batan0ptions.replace(`value="${it.batanId||''}"`,`value="${it.batanId||''}" selected`)}
         </select>
         ${it.batanId ? `
         <input type="number" value="${it.batanMeters||''}" step="0.5" min="0" placeholder="الأمتار"
-          style="width:90px;padding:6px 10px;border:1.5px solid var(--info);border-radius:6px;font-size:13px;text-align:center"
+          style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
           oninput="abaItems[${i}].batanMeters=parseFloat(this.value)||0;updateItemsTotal()"
           title="عدد أمتار البطان">
-        <span style="font-size:11px;color:var(--info);white-space:nowrap">م بطان</span>` : ''}
+        <span style="font-size:11px;color:var(--info)">م</span>` : ''}
       </div>
 
       ${it.fabricFromTailor ? `
@@ -5236,6 +5333,167 @@ function showToast(msg, type = 'success') {
   setTimeout(() => toast.remove(), 3500);
 }
 
+async function enableNotifications() {
+  const status = document.getElementById('notifStatus');
+  if (status) status.textContent = '⏳ جاري التفعيل...';
+  await initPushNotifications();
+  updateNotifStatus();
+}
+
+function testNotification() {
+  if (Notification.permission !== 'granted') {
+    showToast('⚠️ فعّلي الإشعارات أولاً', 'warning');
+    return;
+  }
+  sendLocalNotification(
+    '🧪 تجربة إشعار By Lubna',
+    'الإشعارات تعمل بشكل صحيح ✅',
+    'test'
+  );
+  showToast('تم إرسال إشعار تجريبي ✓', 'success');
+}
+
+function installPWA() {
+  if (window.__installPrompt) {
+    window.__installPrompt.prompt();
+    window.__installPrompt.userChoice.then(r => {
+      if (r.outcome === 'accepted') showToast('✅ تم تثبيت التطبيق!', 'success');
+      window.__installPrompt = null;
+      document.getElementById('pwaInstallBtn').style.display = 'none';
+    });
+  }
+}
+
+function updateNotifStatus() {
+  const el = document.getElementById('notifStatus');
+  if (!el) return;
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    el.style.background = '#f0fff4';
+    el.style.color = 'var(--success)';
+    el.innerHTML = '✅ الإشعارات مفعّلة على هذا الجهاز';
+  } else if (perm === 'denied') {
+    el.style.background = '#fff0f0';
+    el.style.color = 'var(--danger)';
+    el.innerHTML = '❌ الإشعارات محظورة — افتحي إعدادات الهاتف وأذني للموقع';
+  } else {
+    el.style.background = 'var(--bg2)';
+    el.style.color = 'var(--text-muted)';
+    el.innerHTML = '⭕ الإشعارات غير مفعّلة بعد — اضغطي "تفعيل الإشعارات"';
+  }
+}
+
+// ===== PUSH NOTIFICATIONS (FCM) =====
+
+// VAPID Key من Firebase Console > Project Settings > Cloud Messaging
+// *** يجب استبداله بالـ VAPID Key الحقيقي من Firebase Console ***
+const VAPID_KEY = 'YOUR_VAPID_KEY_FROM_FIREBASE_CONSOLE';
+
+async function initPushNotifications() {
+  try {
+    // تسجيل Service Worker
+    if ('serviceWorker' in navigator) {
+      await navigator.serviceWorker.register('/bylubna/firebase-messaging-sw.js');
+      console.log('✅ Service Worker مسجّل');
+    }
+
+    // طلب إذن الإشعارات
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      showToast('⚠️ الإشعارات موقوفة — فعّليها من إعدادات الهاتف', 'warning');
+      return;
+    }
+
+    if (!window.__fbMessaging) {
+      showToast('⚠️ يجب الاتصال بـ Firebase أولاً', 'warning');
+      return;
+    }
+
+    // الحصول على FCM Token
+    const { getToken } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
+    const token = await getToken(window.__fbMessaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: await navigator.serviceWorker.ready
+    });
+
+    if (token) {
+      // حفظ التوكن في Firebase لاستخدامه لاحقاً
+      APP.settings.fcmToken = token;
+      saveData();
+      showToast('✅ الإشعارات مفعّلة على هذا الجهاز!', 'success');
+      console.log('FCM Token:', token);
+    }
+  } catch(e) {
+    console.error('خطأ في تفعيل الإشعارات:', e);
+    showToast('❌ تعذّر تفعيل الإشعارات: ' + e.message, 'error');
+  }
+}
+
+// إرسال إشعار محلي (يعمل وهو التطبيق مفتوح)
+function sendLocalNotification(title, body, tag = 'bylubna') {
+  if (Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, {
+      body,
+      icon: '/bylubna/icons/icon-192.png',
+      badge: '/bylubna/icons/icon-192.png',
+      dir: 'rtl',
+      lang: 'ar',
+      tag,
+      vibrate: [200, 100, 200]
+    });
+  } catch(e) {
+    // iOS Safari لا يدعم new Notification مباشرة — يعتمد على SW
+    navigator.serviceWorker?.ready.then(sw => {
+      sw.showNotification(title, { body, icon: '/bylubna/icons/icon-192.png', dir: 'rtl', tag });
+    });
+  }
+}
+
+// ===== تحقق يومي من مواعيد التسليم وحالة المخزون =====
+function runDailyChecks() {
+  const today = new Date().toISOString().split('T')[0];
+
+  // 1. طلبات موعد تسليمها اليوم
+  const dueToday = (APP.orders || []).filter(o =>
+    o.deliverDate === today && o.status !== 'تم التسليم' && o.status !== 'ملغي'
+  );
+  if (dueToday.length > 0) {
+    const names = dueToday.map(o => o.name || o.bill).join('، ');
+    sendLocalNotification(
+      `📦 ${dueToday.length} طلب موعد تسليمها اليوم`,
+      names,
+      'delivery-today'
+    );
+  }
+
+  // 2. نقص المخزون
+  const allFabric = [
+    ...(APP.fabric || []).map(f => ({ ...f, _label: 'قماش عباية' })),
+    ...(APP.sheilaFabric || []).map(f => ({ ...f, _label: 'قماش شيلة' })),
+    ...(APP.batan || []).map(f => ({ ...f, _label: 'بطان' }))
+  ];
+  const lowStock = allFabric.filter(f => f.meters < (f.minAlert || 6));
+  if (lowStock.length > 0) {
+    const items = lowStock.map(f => `${f.color} (${f.meters}م)`).join('، ');
+    sendLocalNotification(
+      `⚠️ تنبيه نقص مخزون — ${lowStock.length} صنف`,
+      items,
+      'low-stock'
+    );
+  }
+}
+
+// إشعار طلب جديد من المتجر (يُستدعى من onValue Firebase)
+function notifyNewStoreOrder(orderName, orderBill) {
+  sendLocalNotification(
+    '🛍️ طلب جديد من المتجر!',
+    `${orderName || 'زبونة'} — فاتورة ${orderBill || ''}`,
+    'new-order'
+  );
+  showToast(`🛍️ طلب جديد: ${orderName || orderBill}`, 'success');
+}
+
 // ===== INIT =====
 // ===== AUTH HELPERS =====
 function showLoginOverlay() {
@@ -5514,6 +5772,30 @@ window.addEventListener('DOMContentLoaded', () => {
   if (window.initFirebase) {
     window.initFirebase(FIREBASE_CONFIG);
   }
+
+  // ===== PWA: كشف تثبيت التطبيق =====
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    window.__installPrompt = e;
+    // أظهر زر التثبيت إذا موجود
+    const btn = document.getElementById('pwaInstallBtn');
+    if (btn) btn.style.display = '';
+  });
+
+  // ===== تشغيل الفحوصات اليومية =====
+  // بعد ثانيتين من التحميل
+  setTimeout(() => {
+    if (Notification.permission === 'granted') {
+      runDailyChecks();
+    }
+  }, 2000);
+
+  // كرر الفحص كل ساعة
+  setInterval(() => {
+    if (Notification.permission === 'granted') {
+      runDailyChecks();
+    }
+  }, 3600000);
 
   // إظهار شاشة الدخول إذا لم يكن مسجلاً
   setTimeout(() => {
