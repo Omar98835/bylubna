@@ -70,6 +70,7 @@
               }
               APP.fabric        = data.fabric        || APP.fabric;
               APP.sheilaFabric  = data.sheilaFabric  || APP.sheilaFabric;
+              APP.batan         = data.batan         || APP.batan;
               APP.abaTypes      = data.abaTypes      || APP.abaTypes;
               APP.abaColors     = data.abaColors     || APP.abaColors;
               APP.settings      = { ...APP.settings, ...(data.settings || {}) };
@@ -1385,6 +1386,7 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" onclick="showAddFabric('abaya')">➕ قماش عباية</button>
         <button class="btn btn-outline" onclick="showAddFabric('sheila')" style="border-color:var(--gold);color:var(--gold)">➕ قماش شيلة</button>
+        <button class="btn btn-outline" onclick="showAddFabric('batan')" style="border-color:var(--info);color:var(--info)">➕ بطان عباية</button>
       </div>
     </div>
 
@@ -1423,6 +1425,18 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
         <span id="sheilaFabricCount" style="font-size:12px;color:var(--text-muted)"></span>
       </div>
       <div class="fabric-grid" id="sheilaFabricGrid"></div>
+    </div>
+
+    <!-- بطان العباية -->
+    <div class="card mb-16">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--info)">🪡 بطان العباية</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">الأمتار المخصومة تُدخل يدوياً عند كل طلب</div>
+        </div>
+        <span id="batanCount" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+      <div class="fabric-grid" id="batanGrid"></div>
     </div>
 
     <!-- ===== قسم المواد التغليفية ===== -->
@@ -1996,6 +2010,7 @@ let APP = {
   orders: [],
   fabric: [],        // أقمشة العبايات
   sheilaFabric: [],  // أقمشة الشيلات
+  batan: [],         // بطان العباية
   abaTypes: ['عباية أزرار','عباية شك خرز','عباية بسيطة','عباية كلوش','عباية مطرزة','عباية كيب'],
   abaColors: ['أسود','خمري','رمادي','أزرق','أخضر','أصفر','بني','أبيض'],
   settings: {
@@ -2078,6 +2093,7 @@ function loadData() {
       APP.bank        = parsed.bank        || { balance: 0, transactions: [] };
       APP.packaging      = parsed.packaging      || { bags: 0, labels: 0, wrap: 0 };
       APP.sheilaFabric   = parsed.sheilaFabric   || [];
+      APP.batan          = parsed.batan          || [];
       APP.packagingLog= parsed.packagingLog|| [];
       APP.suppliers   = parsed.suppliers   || [];
       APP.collection  = parsed.collection  || [];
@@ -2111,6 +2127,7 @@ function saveData() {
         orders: APP.orders,
         fabric: APP.fabric,
         sheilaFabric: APP.sheilaFabric,
+        batan: APP.batan,
         abaTypes: APP.abaTypes,
         abaColors: APP.abaColors,
         discounts: APP.discounts,
@@ -2698,21 +2715,29 @@ let abaItems = []; // [{color, type, qty, price}]
 function renderAbaItems() {
   const container = document.getElementById('abaItemsContainer');
   if (!container) return;
-  if (!abaItems.length) abaItems = [{ color: '', type: '', qty: 1, price: 0, sheilaId: '' }];
+  if (!abaItems.length) abaItems = [{ color: '', type: '', qty: 1, price: 0, sheilaId: '', fabricFromTailor: false, sheilaFromTailor: false, batanId: '', batanMeters: 0 }];
   const sheilaOptions = '<option value="">-- بدون شيلة --</option>' +
     (APP.sheilaFabric||[]).map(f=>`<option value="${f.id}">${f.color}</option>`).join('');
   const fabricOptions = '<option value="">-- اختر لون القماش --</option>' +
     (APP.fabric||[]).map(f=>`<option value="${f.id}">${f.color}</option>`).join('');
 
+  const batan0ptions = '<option value="">-- بدون بطان --</option>' +
+    (APP.batan||[]).map(f=>`<option value="${f.id}">${f.color}</option>`).join('');
+
   container.innerHTML = abaItems.map((it, i) => `
-    <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
+    <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(          --radius-sm);padding:14px;margin-bottom:10px">
       <div style="display:grid;grid-template-columns:2fr 2fr 70px 110px auto;gap:8px;align-items:end;margin-bottom:10px">
         <div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">لون قماش العباية</div>
-          <select class="abaya-fabric-select" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
-            onchange="abaItems[${i}].fabricId=this.value;abaItems[${i}].color=this.options[this.selectedIndex].text;updateItemsTotal()">
-            ${fabricOptions.replace(`value="${it.fabricId||''}"`,`value="${it.fabricId||''}" selected`)}
-          </select>
+          ${it.fabricFromTailor
+            ? `<input type="text" value="${it.color||''}" placeholder="اكتبي اللون يدوياً"
+                style="width:100%;padding:7px 10px;border:1px solid var(--gold);border-radius:6px;font-size:13px;background:#fffbf0"
+                oninput="abaItems[${i}].color=this.value;updateItemsTotal()">`
+            : `<select class="abaya-fabric-select" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+                onchange="abaItems[${i}].fabricId=this.value;abaItems[${i}].color=this.options[this.selectedIndex].text;updateItemsTotal()">
+                ${fabricOptions.replace(`value="${it.fabricId||''}"`,`value="${it.fabricId||''}" selected`)}
+              </select>`
+          }
         </div>
         <div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">النوع / الوصف</div>
@@ -2737,27 +2762,68 @@ function renderAbaItems() {
             style="background:#fde8e8;border:1px solid #f5c6c6;color:var(--danger);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px">🗑</button>` : '<div style="width:36px"></div>'}
         </div>
       </div>
-      <!-- شيلة -->
-      <div style="display:flex;align-items:center;gap:10px;background:var(--card);border-radius:8px;padding:8px 12px">
+
+      <!-- خيارات القماش من الخياط + الشيلة + البطان -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <!-- تشك بوكس: القماش من عند الخياط -->
+        <label style="display:flex;align-items:center;gap:6px;background:${it.fabricFromTailor?'#fffbf0':'var(--card)'};border:1px solid ${it.fabricFromTailor?'var(--gold)':'var(--border)'};border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:600;color:${it.fabricFromTailor?'#8a6d00':'var(--text)'}">
+          <input type="checkbox" ${it.fabricFromTailor?'checked':''} style="width:15px;height:15px;accent-color:var(--gold)"
+            onchange="abaItems[${i}].fabricFromTailor=this.checked;if(this.checked){abaItems[${i}].fabricId='';}renderAbaItems()">
+          🧵 قماش العباية من الخياط
+        </label>
+        <!-- تشك بوكس: الشيلة من عند الخياط -->
+        <label style="display:flex;align-items:center;gap:6px;background:${it.sheilaFromTailor?'#fffbf0':'var(--card)'};border:1px solid ${it.sheilaFromTailor?'var(--gold)':'var(--border)'};border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:600;color:${it.sheilaFromTailor?'#8a6d00':'var(--text)'}">
+          <input type="checkbox" ${it.sheilaFromTailor?'checked':''} style="width:15px;height:15px;accent-color:var(--gold)"
+            onchange="abaItems[${i}].sheilaFromTailor=this.checked;if(this.checked){abaItems[${i}].sheilaId='';}renderAbaItems()">
+          🧣 شيلة من الخياط
+        </label>
+      </div>
+
+      <!-- شيلة من المخزون (إذا مو من الخياط) -->
+      ${!it.sheilaFromTailor ? `
+      <div style="display:flex;align-items:center;gap:10px;background:var(--card);border-radius:8px;padding:8px 12px;margin-bottom:8px">
         <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">🧣 مع شيلة؟</span>
         <select class="sheila-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
           onchange="abaItems[${i}].sheilaId=this.value;updateItemsTotal()">
           ${sheilaOptions.replace(`value="${it.sheilaId||''}"`,`value="${it.sheilaId||''}" selected`)}
         </select>
-        ${it.sheilaId ? `<span style="font-size:11px;color:var(--gold)">✦ سيُخصم ${APP.settings.metersPerSheila||2} م من الشيلة + يبل</span>` : ''}
+        ${it.sheilaId ? `<span style="font-size:11px;color:var(--gold)">✦ سيُخصم ${APP.settings.metersPerSheila||2} م</span>` : ''}
+      </div>` : `
+      <div style="background:#fffbf0;border:1px dashed var(--gold);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:#8a6d00">
+        🧣 الشيلة من الخياط — لن يُخصم من مخزونك
+      </div>`}
+
+      <!-- بطان العباية -->
+      <div style="display:flex;align-items:center;gap:10px;background:var(--card);border-radius:8px;padding:8px 12px;margin-bottom:8px">
+        <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">🪡 بطان؟</span>
+        <select style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+          onchange="abaItems[${i}].batanId=this.value;updateItemsTotal()">
+          ${batan0ptions.replace(`value="${it.batanId||''}"`,`value="${it.batanId||''}" selected`)}
+        </select>
+        ${it.batanId ? `
+        <input type="number" value="${it.batanMeters||''}" step="0.5" min="0" placeholder="الأمتار"
+          style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+          oninput="abaItems[${i}].batanMeters=parseFloat(this.value)||0;updateItemsTotal()"
+          title="عدد أمتار البطان">
+        <span style="font-size:11px;color:var(--info)">م</span>` : ''}
       </div>
+
+      ${it.fabricFromTailor ? `
+      <div style="background:#fffbf0;border:1px dashed var(--gold);border-radius:8px;padding:8px 12px;font-size:12px;color:#8a6d00">
+        🧵 قماش العباية من الخياط — لن يُخصم من مخزونك
+      </div>` : ''}
     </div>`).join('');
   updateItemsTotal();
 }
 
 function addAbaItem() {
-  abaItems.push({ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '' });
+  abaItems.push({ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '', fabricFromTailor: false, sheilaFromTailor: false, batanId: '', batanMeters: 0 });
   renderAbaItems();
 }
 
 function removeAbaItem(i) {
   abaItems.splice(i, 1);
-  if (!abaItems.length) abaItems = [{ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '' }];
+  if (!abaItems.length) abaItems = [{ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '', fabricFromTailor: false, sheilaFromTailor: false, batanId: '', batanMeters: 0 }];
   renderAbaItems();
 }
 
@@ -2808,7 +2874,7 @@ function initNewOrder() {
   const dSt = document.getElementById('discountStatus');
   if (dSt) dSt.innerHTML = '';
   // Reset multi-item list
-  abaItems = [{ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '' }];
+  abaItems = [{ fabricId: '', color: '', type: '', qty: 1, price: 0, sheilaId: '', fabricFromTailor: false, sheilaFromTailor: false, batanId: '', batanMeters: 0 }];
   renderAbaItems();
 }
 
@@ -2947,13 +3013,17 @@ function saveOrder() {
       // أرجع قماش العبايات القديم
       if (oldOrder.items && oldOrder.items.length) {
         oldOrder.items.forEach(it => {
-          if (it.fabricId) {
+          if (it.fabricId && !it.fabricFromTailor) {
             const f = APP.fabric.find(x=>x.id===it.fabricId);
             if (f) f.meters += (it.qty||1)*mpa;
           }
-          if (it.sheilaId) {
+          if (it.sheilaId && !it.sheilaFromTailor) {
             const sf = APP.sheilaFabric.find(x=>x.id===it.sheilaId);
             if (sf) sf.meters += (it.qty||1)*mps;
+          }
+          if (it.batanId && it.batanMeters > 0) {
+            const bt = (APP.batan||[]).find(b=>b.id===it.batanId);
+            if (bt) bt.meters += it.batanMeters * (it.qty||1);
           }
         });
       } else {
@@ -2965,13 +3035,17 @@ function saveOrder() {
 
       // اخصم القماش الجديد
       validItems.forEach(it => {
-        if (it.fabricId) {
+        if (it.fabricId && !it.fabricFromTailor) {
           const f = APP.fabric.find(x=>x.id===it.fabricId);
           if (f) f.meters = Math.max(0, f.meters - (it.qty||1)*mpa);
         }
-        if (it.sheilaId) {
+        if (it.sheilaId && !it.sheilaFromTailor) {
           const sf = APP.sheilaFabric.find(x=>x.id===it.sheilaId);
           if (sf) sf.meters = Math.max(0, sf.meters - (it.qty||1)*mps);
+        }
+        if (it.batanId && it.batanMeters > 0) {
+          const bt = (APP.batan||[]).find(b=>b.id===it.batanId);
+          if (bt) bt.meters = Math.max(0, bt.meters - it.batanMeters * (it.qty||1));
         }
       });
 
@@ -2992,17 +3066,22 @@ function saveOrder() {
     }
     // توليد كود خصم تلقائي للطلب الجديد (إذا كانت الحملة فعّالة)
     order._autoDiscountCode = autoGenerateDiscountForOrder(order);
-    // خصم أقمشة العبايات (بحسب fabricId)
+    // خصم أقمشة العبايات (بحسب fabricId) — إلا إذا القماش من الخياط
     const mpa = APP.settings.metersPerAbaya || 3;
     const mps = APP.settings.metersPerSheila || 2;
     validItems.forEach(it => {
-      if (it.fabricId) {
+      if (it.fabricId && !it.fabricFromTailor) {
         const fItem = APP.fabric.find(f=>f.id===it.fabricId);
         if (fItem) fItem.meters = Math.max(0, fItem.meters - (it.qty||1)*mpa);
       }
-      if (it.sheilaId) {
+      if (it.sheilaId && !it.sheilaFromTailor) {
         const sf = APP.sheilaFabric.find(f=>f.id===it.sheilaId);
         if (sf) sf.meters = Math.max(0, sf.meters - (it.qty||1)*mps);
+      }
+      // خصم البطان بالأمتار المحددة يدوياً
+      if (it.batanId && it.batanMeters > 0) {
+        const bt = (APP.batan||[]).find(b=>b.id===it.batanId);
+        if (bt) bt.meters = Math.max(0, bt.meters - it.batanMeters * (it.qty||1));
       }
     });
     showToast('تم حفظ الطلب ✓', 'success');
@@ -3740,6 +3819,13 @@ function renderFabricPage() {
   if (sg) sg.innerHTML = (APP.sheilaFabric||[]).map(f=>buildFabricCard(f,'sheila')).join('') ||
     '<div class="empty-state"><div class="icon">🧣</div><p>لا يوجد قماش شيلات بعد</p></div>';
   if (ssc) ssc.textContent = (APP.sheilaFabric||[]).length + ' نوع';
+
+  // Batan grid
+  const bg = document.getElementById('batanGrid');
+  const bc = document.getElementById('batanCount');
+  if (bg) bg.innerHTML = (APP.batan||[]).map(f=>buildFabricCard(f,'batan')).join('') ||
+    '<div class="empty-state"><div class="icon">🪡</div><p>لا يوجد بطان بعد</p></div>';
+  if (bc) bc.textContent = (APP.batan||[]).length + ' نوع';
 }
 
 function refreshSheilaDroplists() {
@@ -3755,24 +3841,30 @@ function refreshSheilaDroplists() {
 function showAddFabric(type='abaya') {
   document.getElementById('fm_id').value = '';
   document.getElementById('fm_fabricType').value = type;
-  document.getElementById('fabricModalTitle').textContent = type==='sheila' ? '🧣 إضافة قماش شيلة' : '🧕 إضافة قماش عباية';
+  document.getElementById('fabricModalTitle').textContent =
+    type==='sheila' ? '🧣 إضافة قماش شيلة' :
+    type==='batan'  ? '🪡 إضافة بطان عباية' :
+                      '🧕 إضافة قماش عباية';
   document.getElementById('fm_color').value = '';
   document.getElementById('fm_meters').value = '';
   document.getElementById('fm_cost').value = '';
   document.getElementById('fm_minAlert').value = 6;
   document.getElementById('fm_note').value = '';
-  document.getElementById('fm_colorPicker').value = type==='sheila' ? '#C9A96E' : '#2C1A12';
-  document.getElementById('fm_colorPreview').style.background = type==='sheila' ? '#C9A96E' : '#2C1A12';
+  document.getElementById('fm_colorPicker').value = type==='sheila' ? '#C9A96E' : type==='batan' ? '#5b8dd9' : '#2C1A12';
+  document.getElementById('fm_colorPreview').style.background = type==='sheila' ? '#C9A96E' : type==='batan' ? '#5b8dd9' : '#2C1A12';
   openModal('fabricModal');
 }
 
 function editFabric(id, type='abaya') {
-  const list = type==='sheila' ? APP.sheilaFabric : APP.fabric;
+  const list = type==='sheila' ? APP.sheilaFabric : type==='batan' ? (APP.batan||[]) : APP.fabric;
   const f = list.find(x => x.id === id);
   if (!f) return;
   document.getElementById('fm_id').value = f.id;
   document.getElementById('fm_fabricType').value = type;
-  document.getElementById('fabricModalTitle').textContent = type==='sheila' ? '🧣 تعديل قماش شيلة' : '🧕 تعديل قماش عباية';
+  document.getElementById('fabricModalTitle').textContent =
+    type==='sheila' ? '🧣 تعديل قماش شيلة' :
+    type==='batan'  ? '🪡 تعديل بطان عباية' :
+                      '🧕 تعديل قماش عباية';
   document.getElementById('fm_color').value = f.color;
   document.getElementById('fm_meters').value = f.meters;
   document.getElementById('fm_cost').value = f.cost;
@@ -3797,7 +3889,7 @@ function saveFabric() {
     minAlert:  parseFloat(document.getElementById('fm_minAlert').value)||6,
     note:      document.getElementById('fm_note').value.trim()
   };
-  const list = type==='sheila' ? APP.sheilaFabric : APP.fabric;
+  const list = type==='sheila' ? APP.sheilaFabric : type==='batan' ? (APP.batan||(APP.batan=[])) : APP.fabric;
   const idx = list.findIndex(f => f.id === id);
   if (idx !== -1) list[idx] = fabric; else list.push(fabric);
   saveData(); closeModal('fabricModal'); renderFabricPage();
@@ -3807,6 +3899,7 @@ function saveFabric() {
 function deleteFabric(id, type='abaya') {
   if (!confirm('حذف هذا القماش؟')) return;
   if (type==='sheila') APP.sheilaFabric = APP.sheilaFabric.filter(f=>f.id!==id);
+  else if (type==='batan') APP.batan = (APP.batan||[]).filter(f=>f.id!==id);
   else APP.fabric = APP.fabric.filter(f=>f.id!==id);
   saveData(); renderFabricPage();
 }
