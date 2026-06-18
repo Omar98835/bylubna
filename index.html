@@ -2797,15 +2797,15 @@ function renderAbaItems() {
       <div style="display:flex;align-items:center;gap:10px;background:var(--card);border-radius:8px;padding:8px 12px;margin-bottom:8px">
         <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">🪡 بطان؟</span>
         <select style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
-          onchange="abaItems[${i}].batanId=this.value;updateItemsTotal()">
+          onchange="abaItems[${i}].batanId=this.value;abaItems[${i}].batanMeters=0;renderAbaItems()">
           ${batan0ptions.replace(`value="${it.batanId||''}"`,`value="${it.batanId||''}" selected`)}
         </select>
         ${it.batanId ? `
         <input type="number" value="${it.batanMeters||''}" step="0.5" min="0" placeholder="الأمتار"
-          style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+          style="width:90px;padding:6px 10px;border:1.5px solid var(--info);border-radius:6px;font-size:13px;text-align:center"
           oninput="abaItems[${i}].batanMeters=parseFloat(this.value)||0;updateItemsTotal()"
           title="عدد أمتار البطان">
-        <span style="font-size:11px;color:var(--info)">م</span>` : ''}
+        <span style="font-size:11px;color:var(--info);white-space:nowrap">م بطان</span>` : ''}
       </div>
 
       ${it.fabricFromTailor ? `
