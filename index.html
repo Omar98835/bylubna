@@ -109,24 +109,26 @@
               if (data.packaging)    APP.packaging    = data.packaging;
               if (data.packagingLog) APP.packagingLog = data.packagingLog;
               if (data.suppliers)    APP.suppliers    = data.suppliers;
-              if (JSON.stringify({ orders: APP.orders, fabric: APP.fabric }) !== prev) {
-                // كشف طلبات جديدة من المتجر
-                if (Notification.permission === 'granted') {
-                  try {
-                    const prevOrders = JSON.parse(prev).orders || [];
-                    const newOrders  = APP.orders.filter(o =>
-                      !prevOrders.find(p => p.id === o.id) && o.fromStore
-                    );
-                    newOrders.forEach(o => {
-                      if (typeof notifyNewStoreOrder === 'function')
-                        notifyNewStoreOrder(o.name, o.bill);
-                    });
-                  } catch(e) {}
-                }
-                renderDashboard();
-                if (document.getElementById('page-orders').classList.contains('active'))
-                  renderOrdersTable();
+
+              // كشف طلبات جديدة من المتجر
+              if (Notification.permission === 'granted') {
+                try {
+                  const prevOrders = JSON.parse(prev).orders || [];
+                  const newOrders  = APP.orders.filter(o =>
+                    !prevOrders.find(p => p.id === o.id) && o.fromStore
+                  );
+                  newOrders.forEach(o => {
+                    if (typeof notifyNewStoreOrder === 'function')
+                      notifyNewStoreOrder(o.name, o.bill);
+                  });
+                } catch(e) {}
               }
+
+              // أعد رسم الداشبورد دائماً عند أي sync من Firebase
+              // هذا يحل مشكلة PWA على الآيفون
+              renderDashboard();
+              if (document.getElementById('page-orders')?.classList.contains('active'))
+                renderOrdersTable();
               if (document.getElementById('page-fabric')?.classList.contains('active'))
                 renderPackagingUI();
             }
@@ -2501,8 +2503,21 @@ function renderDashboard() {
 }
 
 function renderCharts(orders, active) {
+  // تحقق من وجود Chart.js — قد يتأخر في PWA
+  if (typeof Chart === 'undefined') {
+    setTimeout(() => renderCharts(orders, active), 500);
+    return;
+  }
+
+  // تحقق من أن الـ canvas ظاهر (مشكلة PWA على الآيفون)
+  const salesEl = document.getElementById('salesChart');
+  if (!salesEl || salesEl.offsetParent === null) {
+    setTimeout(() => renderCharts(orders, active), 300);
+    return;
+  }
+
   // Destroy existing
-  [salesChart, colorChart, monthChart, typeChart].forEach(c => { if(c) c.destroy(); });
+  [salesChart, colorChart, monthChart, typeChart].forEach(c => { if(c) { try { c.destroy(); } catch(e){} } });
 
   // Sales by month
   const monthData = {};
