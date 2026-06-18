@@ -1088,6 +1088,9 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 <!-- Mobile Menu Button -->
 <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
 
+<!-- Sidebar Overlay (mobile) -->
+<div id="sidebarOverlay" onclick="closeSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;"></div>
+
 <!-- Sidebar -->
 <nav class="sidebar" id="sidebar">
   <div class="logo-area">
@@ -2264,11 +2267,30 @@ function goTo(page) {
   if (page === 'settings') { loadSettings(); updateNotifStatus(); }
 
   // Close sidebar on mobile
-  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    const ov = document.getElementById('sidebarOverlay');
+    if (ov) ov.style.display = 'none';
+  }
 }
 
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  const isOpen = sb.classList.contains('open');
+  if (isOpen) {
+    sb.classList.remove('open');
+    if (ov) ov.style.display = 'none';
+  } else {
+    sb.classList.add('open');
+    if (ov) ov.style.display = 'block';
+  }
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  const ov = document.getElementById('sidebarOverlay');
+  if (ov) ov.style.display = 'none';
 }
 
 // ===== PIN =====
@@ -5765,13 +5787,19 @@ window.addEventListener('DOMContentLoaded', () => {
   refreshTypeList();
   refreshColorList();
   document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ar-OM', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  renderDashboard();
   checkPIN();
 
-  // تهيئة Firebase تلقائياً
-  if (window.initFirebase) {
-    window.initFirebase(FIREBASE_CONFIG);
-  }
+  // نأجّل renderDashboard و Firebase لتخفيف الثقل على Chrome عند البدء
+  setTimeout(() => {
+    renderDashboard();
+  }, 100);
+
+  // تهيئة Firebase تلقائياً بعد تحميل الصفحة
+  setTimeout(() => {
+    if (window.initFirebase) {
+      window.initFirebase(FIREBASE_CONFIG);
+    }
+  }, 300);
 
   // ===== PWA: كشف تثبيت التطبيق =====
   window.addEventListener('beforeinstallprompt', e => {
