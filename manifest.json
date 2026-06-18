@@ -1,0 +1,26 @@
+{
+  "name": "By Lubna — إدارة العبايات",
+  "short_name": "By Lubna",
+  "description": "نظام إدارة عبايات By Lubna",
+  "start_url": "/bylubna/by-lubna-system_V6_0.html",
+  "display": "standalone",
+  "background_color": "#FAF6F0",
+  "theme_color": "#7B1B42",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
