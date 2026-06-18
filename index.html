@@ -132,6 +132,8 @@
             }
           });
           showToast('🔥 متصل بـ Firebase ✓', 'success');
+          const dot = document.getElementById('fbStatusDot');
+          if (dot) { dot.style.background = '#22c55e'; dot.title = '🔥 متصل بـ Firebase'; }
         } else {
           window.__firebaseReady = false;
           showLoginOverlay();
@@ -1043,6 +1045,39 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 </head>
 <body>
 
+<!-- Splash Screen — يظهر فوراً ويختفي بعد تحميل التطبيق -->
+<div id="splashScreen" style="
+  position:fixed;inset:0;z-index:99999;
+  background:#7B1B42;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  transition:opacity 0.5s ease;
+">
+  <img src="icon-192.png" alt="By Lubna"
+    style="width:110px;height:110px;border-radius:24px;margin-bottom:24px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+  <div style="color:#C9A96E;font-size:28px;font-weight:700;letter-spacing:4px;font-family:'Times New Roman',serif">BY LUBNA</div>
+  <div style="color:#C9A96E;opacity:0.7;font-size:13px;margin-top:8px;letter-spacing:2px">نظام إدارة العبايات</div>
+  <div style="margin-top:40px;display:flex;gap:8px">
+    <div style="width:8px;height:8px;border-radius:50%;background:#C9A96E;animation:sp 1.2s ease-in-out infinite"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#C9A96E;animation:sp 1.2s ease-in-out 0.2s infinite"></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:#C9A96E;animation:sp 1.2s ease-in-out 0.4s infinite"></div>
+  </div>
+</div>
+<style>
+  @keyframes sp {
+    0%,100% { opacity:0.3; transform:scale(0.8); }
+    50%      { opacity:1;   transform:scale(1.2); }
+  }
+</style>
+<script>
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const s = document.getElementById('splashScreen');
+      if (s) { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }
+    }, 800);
+  });
+</script>
+
 <!-- ===== FIREBASE LOGIN OVERLAY ===== -->
 <div id="loginOverlay" style="display:none">
   <div class="login-card">
@@ -1126,7 +1161,11 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
         <div class="page-title">🏠 لوحة التحكم</div>
         <div class="page-subtitle" id="dashDate"></div>
       </div>
-      <div class="flex gap-8">
+      <div class="flex gap-8" style="align-items:center">
+        <div id="fbStatusDot" title="حالة الاتصال"
+          style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;cursor:help"
+          onclick="showToast(window.__firebaseReady ? '🔥 متصل بـ Firebase' : '⚠️ غير متصل — يعمل محلياً', window.__firebaseReady ? \'success\' : \'warning\')">
+        </div>
         <button class="btn btn-outline btn-sm" onclick="generateMonthlyPDF()">📄 تقرير شهري PDF</button>
         <button class="btn btn-gold btn-sm" onclick="exportExcel()">📊 تصدير Excel</button>
       </div>
@@ -2453,6 +2492,12 @@ function renderDashboard() {
   updateBadges();
   updateBankDisplay();
   renderCampaignDashboard();
+  // تحديث مؤشر الاتصال
+  const dot = document.getElementById('fbStatusDot');
+  if (dot) {
+    dot.style.background = window.__firebaseReady ? '#22c55e' : '#f59e0b';
+    dot.title = window.__firebaseReady ? '🔥 متصل بـ Firebase' : '⚠️ جاري الاتصال...';
+  }
 }
 
 function renderCharts(orders, active) {
@@ -5794,12 +5839,19 @@ window.addEventListener('DOMContentLoaded', () => {
     renderDashboard();
   }, 100);
 
-  // تهيئة Firebase تلقائياً بعد تحميل الصفحة
-  setTimeout(() => {
+  // تهيئة Firebase — مع retry لدعم PWA على الآيفون
+  // الـ module script قد يتأخر في PWA
+  function tryInitFirebase(attempts = 0) {
     if (window.initFirebase) {
       window.initFirebase(FIREBASE_CONFIG);
+    } else if (attempts < 20) {
+      // انتظر 500ms وحاول مرة ثانية (حتى 10 ثوانٍ)
+      setTimeout(() => tryInitFirebase(attempts + 1), 500);
+    } else {
+      console.warn('Firebase module لم يتحمّل بعد 10 ثوانٍ');
     }
-  }, 300);
+  }
+  setTimeout(() => tryInitFirebase(), 300);
 
   // ===== PWA: كشف تثبيت التطبيق =====
   window.addEventListener('beforeinstallprompt', e => {
