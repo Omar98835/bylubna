@@ -29,7 +29,7 @@
     signOut,
     onAuthStateChanged
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-  import { getMessaging, onMessage }
+  import { getMessaging, getToken, onMessage }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
 
   window.__firebaseReady = false;
@@ -109,33 +109,29 @@
               if (data.packaging)    APP.packaging    = data.packaging;
               if (data.packagingLog) APP.packagingLog = data.packagingLog;
               if (data.suppliers)    APP.suppliers    = data.suppliers;
-
-              // كشف طلبات جديدة من المتجر
-              if (Notification.permission === 'granted') {
-                try {
-                  const prevOrders = JSON.parse(prev).orders || [];
-                  const newOrders  = APP.orders.filter(o =>
-                    !prevOrders.find(p => p.id === o.id) && o.fromStore
-                  );
-                  newOrders.forEach(o => {
-                    if (typeof notifyNewStoreOrder === 'function')
-                      notifyNewStoreOrder(o.name, o.bill);
-                  });
-                } catch(e) {}
+              if (JSON.stringify({ orders: APP.orders, fabric: APP.fabric }) !== prev) {
+                // كشف طلبات جديدة من المتجر
+                if (Notification.permission === 'granted') {
+                  try {
+                    const prevOrders = JSON.parse(prev).orders || [];
+                    const newOrders  = APP.orders.filter(o =>
+                      !prevOrders.find(p => p.id === o.id) && o.fromStore
+                    );
+                    newOrders.forEach(o => {
+                      if (typeof notifyNewStoreOrder === 'function')
+                        notifyNewStoreOrder(o.name, o.bill);
+                    });
+                  } catch(e) {}
+                }
+                renderDashboard();
+                if (document.getElementById('page-orders').classList.contains('active'))
+                  renderOrdersTable();
               }
-
-              // أعد رسم الداشبورد دائماً عند أي sync من Firebase
-              // هذا يحل مشكلة PWA على الآيفون
-              renderDashboard();
-              if (document.getElementById('page-orders')?.classList.contains('active'))
-                renderOrdersTable();
               if (document.getElementById('page-fabric')?.classList.contains('active'))
                 renderPackagingUI();
             }
           });
           showToast('🔥 متصل بـ Firebase ✓', 'success');
-          const dot = document.getElementById('fbStatusDot');
-          if (dot) { dot.style.background = '#22c55e'; dot.title = '🔥 متصل بـ Firebase'; }
         } else {
           window.__firebaseReady = false;
           showLoginOverlay();
@@ -1047,39 +1043,6 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 </head>
 <body>
 
-<!-- Splash Screen — يظهر فوراً ويختفي بعد تحميل التطبيق -->
-<div id="splashScreen" style="
-  position:fixed;inset:0;z-index:99999;
-  background:#7B1B42;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  transition:opacity 0.5s ease;
-">
-  <img src="icon-192.png" alt="By Lubna"
-    style="width:110px;height:110px;border-radius:24px;margin-bottom:24px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
-  <div style="color:#C9A96E;font-size:28px;font-weight:700;letter-spacing:4px;font-family:'Times New Roman',serif">BY LUBNA</div>
-  <div style="color:#C9A96E;opacity:0.7;font-size:13px;margin-top:8px;letter-spacing:2px">نظام إدارة العبايات</div>
-  <div style="margin-top:40px;display:flex;gap:8px">
-    <div style="width:8px;height:8px;border-radius:50%;background:#C9A96E;animation:sp 1.2s ease-in-out infinite"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#C9A96E;animation:sp 1.2s ease-in-out 0.2s infinite"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#C9A96E;animation:sp 1.2s ease-in-out 0.4s infinite"></div>
-  </div>
-</div>
-<style>
-  @keyframes sp {
-    0%,100% { opacity:0.3; transform:scale(0.8); }
-    50%      { opacity:1;   transform:scale(1.2); }
-  }
-</style>
-<script>
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const s = document.getElementById('splashScreen');
-      if (s) { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }
-    }, 800);
-  });
-</script>
-
 <!-- ===== FIREBASE LOGIN OVERLAY ===== -->
 <div id="loginOverlay" style="display:none">
   <div class="login-card">
@@ -1125,9 +1088,6 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
 <!-- Mobile Menu Button -->
 <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
 
-<!-- Sidebar Overlay (mobile) -->
-<div id="sidebarOverlay" onclick="closeSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;"></div>
-
 <!-- Sidebar -->
 <nav class="sidebar" id="sidebar">
   <div class="logo-area">
@@ -1163,11 +1123,7 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
         <div class="page-title">🏠 لوحة التحكم</div>
         <div class="page-subtitle" id="dashDate"></div>
       </div>
-      <div class="flex gap-8" style="align-items:center">
-        <div id="fbStatusDot" title="حالة الاتصال"
-          style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;cursor:help"
-          onclick="showToast(window.__firebaseReady ? '🔥 متصل بـ Firebase' : '⚠️ غير متصل — يعمل محلياً', window.__firebaseReady ? \'success\' : \'warning\')">
-        </div>
+      <div class="flex gap-8">
         <button class="btn btn-outline btn-sm" onclick="generateMonthlyPDF()">📄 تقرير شهري PDF</button>
         <button class="btn btn-gold btn-sm" onclick="exportExcel()">📊 تصدير Excel</button>
       </div>
@@ -1539,10 +1495,11 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">كيس واحد لكل عباية</div>
           <div style="font-size:32px;font-weight:700;color:var(--burgundy)" id="pkg_bags_display">0</div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">متوفر</div>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;margin-bottom:6px">
             <input type="number" id="pkg_bags_add" placeholder="أضف" min="0" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
             <button class="btn btn-primary btn-sm" onclick="addPackaging('bags')">➕</button>
           </div>
+          <button class="btn btn-outline btn-sm" style="width:100%;font-size:12px" onclick="editPackagingQty('bags','أكياس')">✏️ تعديل الرصيد</button>
         </div>
         <!-- Labels -->
         <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center">
@@ -1551,10 +1508,11 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">يبل واحد لكل عباية</div>
           <div style="font-size:32px;font-weight:700;color:var(--burgundy)" id="pkg_labels_display">0</div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">متوفر</div>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;margin-bottom:6px">
             <input type="number" id="pkg_labels_add" placeholder="أضف" min="0" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
             <button class="btn btn-primary btn-sm" onclick="addPackaging('labels')">➕</button>
           </div>
+          <button class="btn btn-outline btn-sm" style="width:100%;font-size:12px" onclick="editPackagingQty('labels','يبل')">✏️ تعديل الرصيد</button>
         </div>
         <!-- Wrapping paper -->
         <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center">
@@ -1563,10 +1521,11 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">قطعة واحدة لكل عباية</div>
           <div style="font-size:32px;font-weight:700;color:var(--burgundy)" id="pkg_wrap_display">0</div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">متوفر</div>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;margin-bottom:6px">
             <input type="number" id="pkg_wrap_add" placeholder="أضف" min="0" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center">
             <button class="btn btn-primary btn-sm" onclick="addPackaging('wrap')">➕</button>
           </div>
+          <button class="btn btn-outline btn-sm" style="width:100%;font-size:12px" onclick="editPackagingQty('wrap','ورق تغليف')">✏️ تعديل الرصيد</button>
         </div>
       </div>
       <!-- Packaging alerts -->
@@ -2308,30 +2267,11 @@ function goTo(page) {
   if (page === 'settings') { loadSettings(); updateNotifStatus(); }
 
   // Close sidebar on mobile
-  if (window.innerWidth <= 768) {
-    document.getElementById('sidebar').classList.remove('open');
-    const ov = document.getElementById('sidebarOverlay');
-    if (ov) ov.style.display = 'none';
-  }
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 }
 
 function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebarOverlay');
-  const isOpen = sb.classList.contains('open');
-  if (isOpen) {
-    sb.classList.remove('open');
-    if (ov) ov.style.display = 'none';
-  } else {
-    sb.classList.add('open');
-    if (ov) ov.style.display = 'block';
-  }
-}
-
-function closeSidebar() {
-  document.getElementById('sidebar')?.classList.remove('open');
-  const ov = document.getElementById('sidebarOverlay');
-  if (ov) ov.style.display = 'none';
+  document.getElementById('sidebar').classList.toggle('open');
 }
 
 // ===== PIN =====
@@ -2494,30 +2434,11 @@ function renderDashboard() {
   updateBadges();
   updateBankDisplay();
   renderCampaignDashboard();
-  // تحديث مؤشر الاتصال
-  const dot = document.getElementById('fbStatusDot');
-  if (dot) {
-    dot.style.background = window.__firebaseReady ? '#22c55e' : '#f59e0b';
-    dot.title = window.__firebaseReady ? '🔥 متصل بـ Firebase' : '⚠️ جاري الاتصال...';
-  }
 }
 
 function renderCharts(orders, active) {
-  // تحقق من وجود Chart.js — قد يتأخر في PWA
-  if (typeof Chart === 'undefined') {
-    setTimeout(() => renderCharts(orders, active), 500);
-    return;
-  }
-
-  // تحقق من أن الـ canvas ظاهر (مشكلة PWA على الآيفون)
-  const salesEl = document.getElementById('salesChart');
-  if (!salesEl || salesEl.offsetParent === null) {
-    setTimeout(() => renderCharts(orders, active), 300);
-    return;
-  }
-
   // Destroy existing
-  [salesChart, colorChart, monthChart, typeChart].forEach(c => { if(c) { try { c.destroy(); } catch(e){} } });
+  [salesChart, colorChart, monthChart, typeChart].forEach(c => { if(c) c.destroy(); });
 
   // Sales by month
   const monthData = {};
@@ -4127,6 +4048,59 @@ function renderPackagingUI() {
   }
 }
 
+function editPackagingQty(type, name) {
+  const current = (APP.packaging || {})[type] || 0;
+  const body = document.getElementById('bankModalBody');
+  const title = document.getElementById('bankModalTitle');
+  if (!body || !title) return;
+
+  title.textContent = `✏️ تعديل رصيد ${name}`;
+  body.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">الرصيد الحالي</div>
+      <div style="font-size:36px;font-weight:700;color:var(--burgundy);text-align:center">${current}</div>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label>الرصيد الجديد</label>
+      <input type="number" id="pkgEditVal" value="${current}" min="0"
+        style="font-size:22px;font-weight:700;text-align:center"
+        onkeydown="if(event.key==='Enter') savePackagingEdit('${type}','${name}')">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center"
+      id="pkgEditConfirmBtn">✅ حفظ التعديل</button>`;
+
+  document.getElementById('pkgEditConfirmBtn')
+    .addEventListener('click', () => savePackagingEdit(type, name));
+
+  openModal('bankModal');
+  setTimeout(() => document.getElementById('pkgEditVal')?.select(), 100);
+}
+
+function savePackagingEdit(type, name) {
+  const val = parseInt(document.getElementById('pkgEditVal')?.value);
+  if (isNaN(val) || val < 0) { showToast('أدخل رقماً صحيحاً', 'error'); return; }
+
+  if (!APP.packaging) APP.packaging = { bags:0, labels:0, wrap:0 };
+  const old = APP.packaging[type] || 0;
+  const diff = val - old;
+  APP.packaging[type] = val;
+
+  if (!APP.packagingLog) APP.packagingLog = [];
+  APP.packagingLog.push({
+    date: new Date().toLocaleDateString('ar-OM'),
+    item: type,
+    type: diff >= 0 ? 'add' : 'deduct',
+    qty: Math.abs(diff),
+    reason: `تعديل يدوي (من ${old} إلى ${val})`,
+    balance: val
+  });
+
+  saveData();
+  closeModal('bankModal');
+  renderPackagingUI();
+  showToast(`✅ تم تعديل رصيد ${name} إلى ${val}`, 'success');
+}
+
 function addPackaging(type) {
   const inp = document.getElementById(`pkg_${type}_add`);
   const qty = parseInt(inp?.value) || 0;
@@ -5467,20 +5441,47 @@ function updateNotifStatus() {
 
 // ===== PUSH NOTIFICATIONS (FCM) =====
 
-// ===== PUSH NOTIFICATIONS (محلي فقط) =====
+// VAPID Key من Firebase Console > Project Settings > Cloud Messaging
+// *** يجب استبداله بالـ VAPID Key الحقيقي من Firebase Console ***
+const VAPID_KEY = 'YOUR_VAPID_KEY_FROM_FIREBASE_CONSOLE';
+
 async function initPushNotifications() {
   try {
+    // تسجيل Service Worker
+    if ('serviceWorker' in navigator) {
+      await navigator.serviceWorker.register('/bylubna/firebase-messaging-sw.js');
+      console.log('✅ Service Worker مسجّل');
+    }
+
+    // طلب إذن الإشعارات
     const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      APP.settings.notifEnabled = true;
+    if (permission !== 'granted') {
+      showToast('⚠️ الإشعارات موقوفة — فعّليها من إعدادات الهاتف', 'warning');
+      return;
+    }
+
+    if (!window.__fbMessaging) {
+      showToast('⚠️ يجب الاتصال بـ Firebase أولاً', 'warning');
+      return;
+    }
+
+    // الحصول على FCM Token
+    const { getToken } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
+    const token = await getToken(window.__fbMessaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: await navigator.serviceWorker.ready
+    });
+
+    if (token) {
+      // حفظ التوكن في Firebase لاستخدامه لاحقاً
+      APP.settings.fcmToken = token;
       saveData();
       showToast('✅ الإشعارات مفعّلة على هذا الجهاز!', 'success');
-    } else {
-      showToast('⚠️ لم يتم السماح بالإشعارات — تحققي من إعدادات الهاتف', 'warning');
+      console.log('FCM Token:', token);
     }
-    updateNotifStatus();
   } catch(e) {
-    showToast('❌ خطأ: ' + e.message, 'error');
+    console.error('خطأ في تفعيل الإشعارات:', e);
+    showToast('❌ تعذّر تفعيل الإشعارات: ' + e.message, 'error');
   }
 }
 
@@ -5820,26 +5821,13 @@ window.addEventListener('DOMContentLoaded', () => {
   refreshTypeList();
   refreshColorList();
   document.getElementById('dashDate').textContent = new Date().toLocaleDateString('ar-OM', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  renderDashboard();
   checkPIN();
 
-  // نأجّل renderDashboard و Firebase لتخفيف الثقل على Chrome عند البدء
-  setTimeout(() => {
-    renderDashboard();
-  }, 100);
-
-  // تهيئة Firebase — مع retry لدعم PWA على الآيفون
-  // الـ module script قد يتأخر في PWA
-  function tryInitFirebase(attempts = 0) {
-    if (window.initFirebase) {
-      window.initFirebase(FIREBASE_CONFIG);
-    } else if (attempts < 20) {
-      // انتظر 500ms وحاول مرة ثانية (حتى 10 ثوانٍ)
-      setTimeout(() => tryInitFirebase(attempts + 1), 500);
-    } else {
-      console.warn('Firebase module لم يتحمّل بعد 10 ثوانٍ');
-    }
+  // تهيئة Firebase تلقائياً
+  if (window.initFirebase) {
+    window.initFirebase(FIREBASE_CONFIG);
   }
-  setTimeout(() => tryInitFirebase(), 300);
 
   // ===== PWA: كشف تثبيت التطبيق =====
   window.addEventListener('beforeinstallprompt', e => {
