@@ -1275,6 +1275,7 @@ th.check-col, td.check-col { width: 36px; text-align: center; padding-right: 8px
               <th>المبلغ</th>
               <th>الربح</th>
               <th>الحالة</th>
+              <th>الدفع</th>
               <th>التسليم</th>
               <th>الإجراءات</th>
             </tr>
@@ -2585,7 +2586,7 @@ function renderOrdersTable() {
 
   const tbody = document.getElementById('ordersBody');
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text-muted)">لا توجد نتائج</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:32px;color:var(--text-muted)">لا توجد نتائج</td></tr>';
     return;
   }
 
@@ -2594,7 +2595,33 @@ function renderOrdersTable() {
 
   tbody.innerHTML = filtered.map(o => {
     const isLate = o.deliverDate && !['تم التسليم','ملغي'].includes(o.status) && new Date(o.deliverDate) < today;
-    return `<tr style="${isLate?'background:#fff8f8':''}" id="row-${o.id}">
+    const totalAmount = (o.amount||0) * (o.qty||1);
+    const deposit = o.deposit || 0;
+    const remaining = o.remaining !== undefined ? o.remaining : Math.max(0, totalAmount - deposit);
+    const isFullyPaid = remaining <= 0 && (deposit > 0 || totalAmount === 0);
+    const isFullyUnpaid = deposit <= 0 && remaining > 0;
+    const isPartiallyPaid = deposit > 0 && remaining > 0;
+
+    let rowBg = isLate ? '#fff8f8' : '';
+    if (!isLate) {
+      if (isFullyPaid) rowBg = '#f0faf4';
+      else if (isFullyUnpaid) rowBg = '#fff5f5';
+    }
+
+    let paymentBadge = '';
+    if (isFullyPaid) {
+      paymentBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#d1fae5;color:#065f46;border:1.5px solid #6ee7b7;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">✅ مكتمل</span>`;
+    } else if (isFullyUnpaid) {
+      paymentBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">❌ غير مدفوع</span>`;
+    } else if (isPartiallyPaid) {
+      paymentBadge = `<span style="display:inline-flex;align-items:center;gap:4px;background:#fff7ed;color:#92400e;border:1.5px dashed #f97316;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap">🟠 جزئي</span>`;
+    }
+
+    const remainingCell = remaining > 0
+      ? `<span style="font-weight:700;color:#c2410c">${remaining.toFixed(3)} ر.ع</span>`
+      : `<span style="color:#059669;font-weight:700">—</span>`;
+
+    return `<tr style="background:${rowBg}" id="row-${o.id}">
       <td class="check-col">
         <input type="checkbox" class="row-check" data-id="${o.id}" onchange="onRowCheck(this)">
       </td>
@@ -2607,6 +2634,7 @@ function renderOrdersTable() {
       <td>${(o.amount||0).toFixed(3)} ر.ع</td>
       <td style="color:${(o.profit||0)>=0?'var(--success)':'var(--danger)'}"><strong>${(o.profit||0).toFixed(3)}</strong></td>
       <td><span class="badge ${statusMap[o.status]||'badge-new'}">${o.status||'جديد'}</span>${isLate?' ⚠️':''}</td>
+      <td style="text-align:center">${paymentBadge}<br><span style="font-size:11px;color:var(--text-muted);margin-top:2px;display:block">${remainingCell}</span></td>
       <td style="font-size:12px;color:var(--text-muted)">${o.deliverDate||'-'}</td>
       <td>
         <div class="flex gap-8">
